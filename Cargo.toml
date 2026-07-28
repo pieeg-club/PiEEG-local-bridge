@@ -1,6 +1,6 @@
 [package]
 name = "pieeg-local-bridge"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "Vendor-neutral browser-to-local-network bridge with pluggable protocol adapters (OSC first)."
 license = "CC-BY-NC-4.0"
