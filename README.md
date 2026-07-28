@@ -73,17 +73,9 @@ First time: macOS may show "unidentified developer" warning.
 
 #### Linux
 ```bash
-# Most desktops/laptops (x86_64)
+# Download and run (x86_64)
 curl -L https://github.com/pieeg-club/PiEEG-local-bridge/releases/latest/download/pieeg-local-bridge-x86_64-unknown-linux-gnu.tar.gz | tar xz
 cd pieeg-local-bridge-x86_64-unknown-linux-gnu && ./pieeg-local-bridge
-
-# Raspberry Pi 4/5 (64-bit)
-curl -L https://github.com/pieeg-club/PiEEG-local-bridge/releases/latest/download/pieeg-local-bridge-aarch64-unknown-linux-gnu.tar.gz | tar xz
-cd pieeg-local-bridge-aarch64-unknown-linux-gnu && ./pieeg-local-bridge
-
-# Raspberry Pi 3/4 (32-bit)
-curl -L https://github.com/pieeg-club/PiEEG-local-bridge/releases/latest/download/pieeg-local-bridge-armv7-unknown-linux-gnueabihf.tar.gz | tar xz
-cd pieeg-local-bridge-armv7-unknown-linux-gnueabihf && ./pieeg-local-bridge
 ```
 
 **What happens next:**
