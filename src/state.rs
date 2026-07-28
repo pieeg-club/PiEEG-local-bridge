@@ -11,6 +11,7 @@ use crate::config::Config;
 use serde::Serialize;
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
+use webrtc::ice_transport::ice_server::RTCIceServer;
 
 /// Live status surfaced to the control UI.
 #[derive(Clone, Debug, Default, Serialize)]
@@ -56,6 +57,9 @@ pub struct AppState {
     pub osc: Arc<OscAdapter>,
     pub discovered: RwLock<Vec<Discovered>>,
     pub ctrl: mpsc::Sender<Ctrl>,
+    /// ICE servers for the current cloud session (STUN/TURN), as returned by
+    /// `POST /v1/webrtc/session`. Empty until a session is created.
+    pub ice_servers: RwLock<Vec<RTCIceServer>>,
 }
 
 impl AppState {

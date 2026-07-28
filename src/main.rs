@@ -151,8 +151,22 @@ async fn main() -> Result<()> {
     // ── Shared state + control channel ──────────────────────────────────────
     let (ctrl_tx, mut ctrl_rx) = mpsc::channel::<Ctrl>(32);
 
-    // Generate initial pairing code
-    let initial_pairing_code = control::generate_pairing_code();
+    // Create a rendezvous session on the cloud signaling server to obtain the
+    // share code (and ICE servers). Fall back to a locally generated code if
+    // the cloud is unreachable so the bridge still starts.
+    let signaling_url = cfg.signaling_url.clone();
+    let (initial_pairing_code, initial_ice_servers, cloud_session_ok) =
+        match transport::webrtc::create_session(&signaling_url).await {
+            Ok(info) => {
+                tracing::info!("cloud session created — share this code: {}", info.code);
+                (info.code, info.ice_servers, true)
+            }
+            Err(e) => {
+                tracing::warn!("could not create cloud session ({e:#}); using local code");
+                (control::generate_pairing_code(), Vec::new(), false)
+            }
+        };
+
     let status = Status {
         pairing_code: initial_pairing_code.clone(),
         ..Default::default()
@@ -164,6 +178,7 @@ async fn main() -> Result<()> {
         osc,
         discovered: RwLock::new(Vec::new()),
         ctrl: ctrl_tx.clone(),
+        ice_servers: RwLock::new(initial_ice_servers),
     });
 
     // ── Background: mDNS discovery ──────────────────────────────────────────
@@ -286,6 +301,12 @@ async fn main() -> Result<()> {
     // ── Optional immediate connect (CLI or restored from config) ────────────
     if let Some(id) = cli.connect {
         let _ = ctrl_tx.send(Ctrl::Connect(id)).await;
+    } else if cloud_session_ok {
+        // Start polling the signaling server for the browser's offer so the
+        // shared code is immediately live — no manual "connect" step needed.
+        let _ = ctrl_tx
+            .send(Ctrl::Connect(initial_pairing_code.clone()))
+            .await;
     }
 
     // ── Orchestrator loop ───────────────────────────────────────────────────
@@ -317,7 +338,11 @@ async fn main() -> Result<()> {
                         }
                         {
                             let mut s = state.status.write().await;
+                            // Preserve the share code shown to the user — it is
+                            // also the rendezvous session id we connect with.
+                            let code = s.pairing_code.clone();
                             *s = Status::default();
+                            s.pairing_code = code;
                             s.paired = true;
                             s.session_id = Some(id.clone());
                         }
@@ -347,18 +372,31 @@ async fn main() -> Result<()> {
                         }
                     }
                     Ctrl::RegenerateCode => {
-                        let new_code = control::generate_pairing_code();
+                        // Disconnect any active session first.
+                        if let Some(h) = transport.take() { h.abort(); }
+
+                        let signaling_url = { state.config.read().await.signaling_url.clone() };
+                        let (new_code, new_ice, cloud_ok) =
+                            match transport::webrtc::create_session(&signaling_url).await {
+                                Ok(info) => (info.code, info.ice_servers, true),
+                                Err(e) => {
+                                    tracing::warn!(
+                                        "could not create cloud session ({e:#}); using local code"
+                                    );
+                                    (control::generate_pairing_code(), Vec::new(), false)
+                                }
+                            };
+                        *state.ice_servers.write().await = new_ice;
                         {
                             let mut s = state.status.write().await;
+                            *s = Status::default();
                             s.pairing_code = new_code.clone();
-                            // Clear any existing pairing
-                            s.paired = false;
-                            s.session_id = None;
-                            s.connected = false;
                         }
                         tracing::info!("new pairing code: {}", new_code);
-                        // Disconnect any active session
-                        if let Some(h) = transport.take() { h.abort(); }
+                        // Start polling for the new session's offer immediately.
+                        if cloud_ok {
+                            let _ = ctrl_tx.send(Ctrl::Connect(new_code)).await;
+                        }
                     }
                 }
             }

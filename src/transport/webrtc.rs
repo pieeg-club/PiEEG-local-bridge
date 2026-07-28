@@ -54,6 +54,80 @@ struct AnswerReq<'a> {
     sdp: &'a str,
 }
 
+/// One ICE server as returned by the cloud (`urls` may be a single string or a
+/// list; `username`/`credential` present only for TURN).
+#[derive(Deserialize)]
+struct IceServerCfg {
+    urls: StringOrVec,
+    #[serde(default)]
+    username: Option<String>,
+    #[serde(default)]
+    credential: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum StringOrVec {
+    One(String),
+    Many(Vec<String>),
+}
+
+impl From<IceServerCfg> for RTCIceServer {
+    fn from(cfg: IceServerCfg) -> Self {
+        let urls = match cfg.urls {
+            StringOrVec::One(s) => vec![s],
+            StringOrVec::Many(v) => v,
+        };
+        RTCIceServer {
+            urls,
+            username: cfg.username.unwrap_or_default(),
+            credential: cfg.credential.unwrap_or_default(),
+            ..Default::default()
+        }
+    }
+}
+
+/// Response body of `POST /v1/webrtc/session`.
+#[derive(Deserialize)]
+struct CreateSessionResp {
+    code: String,
+    #[serde(rename = "iceServers", default)]
+    ice_servers: Vec<IceServerCfg>,
+    #[serde(rename = "expiresAt", default)]
+    expires_at: u64,
+}
+
+/// A freshly created cloud rendezvous session: the share code plus the ICE
+/// servers to use for the peer connection.
+pub struct SessionInfo {
+    pub code: String,
+    pub ice_servers: Vec<RTCIceServer>,
+    #[allow(dead_code)]
+    pub expires_at: u64,
+}
+
+/// Create a new WebRTC rendezvous session on the cloud signaling server.
+///
+/// `POST {signaling_url}/v1/webrtc/session` → `{ code, iceServers, expiresAt }`.
+/// The returned `code` is the 6-character string the user shares with the web
+/// app; the browser resolves it via `GET /v1/webrtc/session/{code}` to obtain
+/// the same ICE configuration before starting the SDP exchange.
+pub async fn create_session(signaling_url: &str) -> anyhow::Result<SessionInfo> {
+    let base = signaling_url.trim_end_matches('/');
+    let url = format!("{base}/v1/webrtc/session");
+    let http = reqwest::Client::builder().build()?;
+    let resp = http.post(&url).send().await?;
+    if !resp.status().is_success() {
+        anyhow::bail!("create session failed ({})", resp.status());
+    }
+    let body: CreateSessionResp = resp.json().await?;
+    Ok(SessionInfo {
+        code: body.code,
+        ice_servers: body.ice_servers.into_iter().map(Into::into).collect(),
+        expires_at: body.expires_at,
+    })
+}
+
 enum SessionEnd {
     /// The peer closed cleanly — stop reconnecting.
     Ended,
@@ -104,11 +178,21 @@ async fn run_session(state: &Arc<AppState>, signaling_url: &str, session_id: &st
     }
     let api = APIBuilder::new().with_media_engine(media).build();
 
+    // Use the ICE servers handed back by the cloud session; fall back to a
+    // public STUN server when none were provided.
+    let ice_servers = {
+        let servers = state.ice_servers.read().await;
+        if servers.is_empty() {
+            vec![RTCIceServer {
+                urls: vec!["stun:stun.l.google.com:19302".to_string()],
+                ..Default::default()
+            }]
+        } else {
+            servers.clone()
+        }
+    };
     let config = RTCConfiguration {
-        ice_servers: vec![RTCIceServer {
-            urls: vec!["stun:stun.l.google.com:19302".to_string()],
-            ..Default::default()
-        }],
+        ice_servers,
         ..Default::default()
     };
 
@@ -248,8 +332,10 @@ async fn fetch_offer(
     session_id: &str,
 ) -> anyhow::Result<String> {
     let url = format!("{base}/v1/signal/{session_id}/offer");
-    // Poll for up to ~2 minutes; the user has just entered the code.
-    for _ in 0..240 {
+    // Poll for up to ~3 minutes; the user has just been shown the code and needs
+    // time to open the web app and enter it. Polling at 1 Hz keeps signaling
+    // load low (well within the server's per-IP rate limit).
+    for _ in 0..180 {
         let resp = http.get(&url).send().await?;
         if resp.status().is_success() {
             // 204 No Content → not ready yet.
@@ -261,7 +347,7 @@ async fn fetch_offer(
                 }
             }
         }
-        tokio::time::sleep(Duration::from_millis(500)).await;
+        tokio::time::sleep(Duration::from_millis(1000)).await;
     }
     anyhow::bail!("timed out waiting for offer")
 }

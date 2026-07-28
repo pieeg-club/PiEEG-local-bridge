@@ -33,8 +33,9 @@ JSON stream into real OSC packets on `127.0.0.1` (or any host on your LAN).
 - **Instant startup, low memory** — pure Rust / Tokio.
 - **System tray** — runs quietly in background; right-click to show UI, regenerate code, or quit.
 - **Direct P2P connection** — WebRTC data channel; all data stays local (loopback/LAN).
-- **Reversed pairing flow** — bridge generates a 6-digit code; you enter it in Pieeg Cloud.
+- **Reversed pairing flow** — bridge requests a session from the cloud and gets back a 6-character share code; you enter it in Pieeg Cloud.
 - **Encrypted transport** — DTLS for the P2P data channel; signaling uses HTTPS.
+- **STUN/TURN aware** — ICE servers are provided by the cloud session for reliable NAT traversal (falls back to public STUN).
 - **Automatic discovery** — finds local OSC apps via mDNS (`_osc._udp`).
 - **Protocol-agnostic core** — pluggable adapters; OSC ships first.
 - **Cross-platform** — Windows, macOS, Linux.
@@ -80,7 +81,7 @@ cd pieeg-local-bridge-x86_64-unknown-linux-gnu && ./pieeg-local-bridge
 
 **What happens next:**
 - ✅ Control UI opens automatically: `http://127.0.0.1:47800`
-- ✅ 6-digit pairing code displayed (e.g. `KHSP3W`)
+- ✅ 6-character share code displayed (e.g. `KHSP3W`)
 - ✅ System tray icon appears — right-click for menu
 
 ---
@@ -102,17 +103,23 @@ cargo build --release
 
 ## How it works
 
-1. **Run the Local Bridge**. It generates a 6-digit pairing code (e.g. `KHSP3W`)
-   and displays it at `http://127.0.0.1:47800`.
-2. In **Pieeg Cloud**, click **Connect to Local Bridge** and enter the pairing code.
+1. **Run the Local Bridge**. On startup it `POST`s to the cloud signaling server
+   (`POST /v1/webrtc/session`), which returns a 6-character share code (e.g.
+   `KHSP3W`) and the ICE servers to use. The code is displayed at
+   `http://127.0.0.1:47800`. If the cloud is unreachable, the bridge falls back
+   to a locally generated code so it still starts.
+2. In **Pieeg Cloud**, click **Connect to Local Bridge** and enter the share code.
+   The web app resolves it via `GET /v1/webrtc/session/<code>` to obtain the same
+   ICE configuration.
 3. The browser and bridge perform a **one-time WebRTC handshake** (SDP/ICE exchange
-   via a cloud signaling server).
+   via the cloud signaling server).
 4. A **direct P2P data channel** opens between browser and bridge. All data flows
    **locally** (loopback or LAN) — nothing is relayed through the cloud.
 5. Incoming data frames are mapped to OSC and sent to your chosen destination.
 
-**Pairing code regeneration**: Right-click the system tray icon and select
-"Regenerate Pairing Code" to create a new code and disconnect any active session.
+**Share code regeneration**: Right-click the system tray icon and select
+"Regenerate Pairing Code" to create a new cloud session (new code + ICE servers)
+and disconnect any active session.
 
 The whole setup takes under a minute and requires no technical knowledge.
 
@@ -151,7 +158,7 @@ Flattening can be disabled in the UI to forward only explicit `osc` envelopes.
 
 | Layer     | File                                                   | Role                                                                 |
 | --------- | ------------------------------------------------------ | -------------------------------------------------------------------- |
-| Transport | [`transport/webrtc.rs`](src/transport/webrtc.rs)       | WebRTC P2P data channel, SDP/ICE handshake via HTTP signaling        |
+| Transport | [`transport/webrtc.rs`](src/transport/webrtc.rs)       | Cloud session creation, WebRTC P2P data channel, SDP/ICE handshake via HTTP signaling |
 | Currency  | [`message.rs`](src/message.rs)                         | `BridgeMessage { address, args }` — protocol-neutral                 |
 | Router    | [`router.rs`](src/router.rs)                           | Generic JSON → `BridgeMessage` mapping (envelope + flatten)          |
 | Adapters  | [`adapters/`](src/adapters/)                           | Pluggable `Adapter` trait; OSC/UDP sink with hot-swappable target    |
@@ -207,8 +214,8 @@ Settings are persisted as JSON and edited from the UI (no manual editing needed)
   browser and bridge (loopback/LAN), not through the cloud.
 - **One-time signaling handshake** — SDP/ICE exchange uses HTTPS; only occurs at
   connection setup.
-- **Pairing code as secret** — the 6-digit code is the trust anchor; regenerate
-  to revoke access.
+- **Share code as secret** — the 6-character code is the trust anchor; regenerate
+  to mint a new cloud session and revoke access.
 - **CORS agnostic** — no vendor origins baked in; configure allowed origins via
   `--allow-origin` or JSON config.
 - **Local-only control API** — listens only on `127.0.0.1`.
@@ -220,8 +227,8 @@ The bridge runs quietly in your system tray (Windows notification area). Right-c
 the tray icon for:
 
 - **Show Control UI** — opens `http://127.0.0.1:47800` in your browser.
-- **Regenerate Pairing Code** — creates a new 6-digit code and disconnects any
-  active session.
+- **Regenerate Pairing Code** — creates a new cloud session (new 6-character code)
+  and disconnects any active session.
 - **Quit** — stops the bridge cleanly.
 
 ## License
