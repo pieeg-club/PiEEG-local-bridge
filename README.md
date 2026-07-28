@@ -44,56 +44,58 @@ JSON stream into real OSC packets on `127.0.0.1` (or any host on your LAN).
 
 ## Installation
 
-### Quick Start (Recommended)
+### 🚀 Quick Start — Download & Run (1 minute)
 
-Download the latest prebuilt binary for your platform — no compilation needed:
+**No installation required.** Download a single executable for your platform and run it.
 
-**Windows**
-1. Download [pieeg-local-bridge-x86_64-pc-windows-msvc.zip](https://github.com/pieeg-club/PiEEG-local-bridge/releases/latest/download/pieeg-local-bridge-x86_64-pc-windows-msvc.zip)
-2. Extract the ZIP file
+#### Windows
+1. **[Download for Windows](https://github.com/pieeg-club/PiEEG-local-bridge/releases/latest)** — get `pieeg-local-bridge-x86_64-pc-windows-msvc.zip`
+2. Extract the ZIP file anywhere
 3. Double-click `pieeg-local-bridge.exe`
-4. Look for the tray icon in your taskbar notification area (bottom-right)
+4. ✅ Done! Look for the **tray icon** (bottom-right, near clock)
 5. Right-click the tray icon → **Show Control UI** to see your pairing code
 
-**macOS**
+#### macOS
 ```bash
-# Apple Silicon (M1/M2/M3)
-curl -L https://github.com/pieeg-club/PiEEG-local-bridge/releases/latest/download/pieeg-local-bridge-aarch64-apple-darwin.tar.gz | tar xz
-cd pieeg-local-bridge-aarch64-apple-darwin
-./pieeg-local-bridge
+# Choose your Mac type:
 
-# Intel Macs
+# Apple Silicon (M1/M2/M3/M4) — Most modern Macs
+curl -L https://github.com/pieeg-club/PiEEG-local-bridge/releases/latest/download/pieeg-local-bridge-aarch64-apple-darwin.tar.gz | tar xz
+cd pieeg-local-bridge-aarch64-apple-darwin && ./pieeg-local-bridge
+
+# Intel Macs — 2020 and earlier
 curl -L https://github.com/pieeg-club/PiEEG-local-bridge/releases/latest/download/pieeg-local-bridge-x86_64-apple-darwin.tar.gz | tar xz
-cd pieeg-local-bridge-x86_64-apple-darwin
-./pieeg-local-bridge
+cd pieeg-local-bridge-x86_64-apple-darwin && ./pieeg-local-bridge
 ```
 
-**Linux**
+First time: macOS may show "unidentified developer" warning.  
+**Fix**: Right-click → **Open**, then click **Open** in the dialog.
+
+#### Linux
 ```bash
-# x86_64 (most desktop/laptop PCs)
+# Most desktops/laptops (x86_64)
 curl -L https://github.com/pieeg-club/PiEEG-local-bridge/releases/latest/download/pieeg-local-bridge-x86_64-unknown-linux-gnu.tar.gz | tar xz
-cd pieeg-local-bridge-x86_64-unknown-linux-gnu
-./pieeg-local-bridge
+cd pieeg-local-bridge-x86_64-unknown-linux-gnu && ./pieeg-local-bridge
 
 # Raspberry Pi 4/5 (64-bit)
 curl -L https://github.com/pieeg-club/PiEEG-local-bridge/releases/latest/download/pieeg-local-bridge-aarch64-unknown-linux-gnu.tar.gz | tar xz
-cd pieeg-local-bridge-aarch64-unknown-linux-gnu
-./pieeg-local-bridge
+cd pieeg-local-bridge-aarch64-unknown-linux-gnu && ./pieeg-local-bridge
 
 # Raspberry Pi 3/4 (32-bit)
 curl -L https://github.com/pieeg-club/PiEEG-local-bridge/releases/latest/download/pieeg-local-bridge-armv7-unknown-linux-gnueabihf.tar.gz | tar xz
-cd pieeg-local-bridge-armv7-unknown-linux-gnueabihf
-./pieeg-local-bridge
+cd pieeg-local-bridge-armv7-unknown-linux-gnueabihf && ./pieeg-local-bridge
 ```
 
-The bridge will:
-- Generate a 6-digit pairing code
-- Open the control UI in your browser (`http://127.0.0.1:47800`)
-- Add a tray icon to your system tray/notification area
+**What happens next:**
+- ✅ Control UI opens automatically: `http://127.0.0.1:47800`
+- ✅ 6-digit pairing code displayed (e.g. `KHSP3W`)
+- ✅ System tray icon appears — right-click for menu
 
-### From Source (Optional)
+---
 
-Only needed if you want to modify the code or build for an unsupported platform:
+### 🛠️ Build from Source (Optional)
+
+Only needed if you want to modify the code or target an unsupported platform.
 
 ```bash
 git clone https://github.com/pieeg-club/PiEEG-local-bridge.git
@@ -102,7 +104,7 @@ cargo build --release
 ./target/release/pieeg-local-bridge
 ```
 
-Requires [Rust](https://rustup.rs/) 1.70+
+**Requirements:** [Rust](https://rustup.rs/) 1.70+
 
 ---
 
