@@ -30,6 +30,9 @@ pub struct BridgeMessage {
 
 impl BridgeMessage {
     pub fn new(address: impl Into<String>, args: Vec<Arg>) -> Self {
-        Self { address: address.into(), args }
+        Self {
+            address: address.into(),
+            args,
+        }
     }
 }

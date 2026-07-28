@@ -24,8 +24,18 @@ use serde_json::Value;
 
 /// JSON keys that are transport/control metadata, never payload.
 const SKIP_KEYS: &[&str] = &[
-    "type", "t", "ts", "viewerId", "viewer_id", "from", "to", "color",
-    "name", "list", "viewers", "data",
+    "type",
+    "t",
+    "ts",
+    "viewerId",
+    "viewer_id",
+    "from",
+    "to",
+    "color",
+    "name",
+    "list",
+    "viewers",
+    "data",
 ];
 
 /// Map one inbound JSON value into zero or more protocol-neutral messages.
@@ -83,9 +93,10 @@ fn flatten(prefix: &str, v: &Value, out: &mut Vec<BridgeMessage>) {
             out.push(BridgeMessage::new(prefix.to_string(), vec![arg]));
         }
         Value::Bool(b) => out.push(BridgeMessage::new(prefix.to_string(), vec![Arg::Bool(*b)])),
-        Value::String(s) => {
-            out.push(BridgeMessage::new(prefix.to_string(), vec![Arg::Str(s.clone())]))
-        }
+        Value::String(s) => out.push(BridgeMessage::new(
+            prefix.to_string(),
+            vec![Arg::Str(s.clone())],
+        )),
         Value::Null => {}
     }
 }
@@ -121,7 +132,10 @@ mod tests {
 
     #[test]
     fn flatten_channels_array_skips_metadata() {
-        let msgs = map_inbound(&json!({"channels": [0.1, 0.2, 0.3], "t": 123.0, "type": "x"}), &osc());
+        let msgs = map_inbound(
+            &json!({"channels": [0.1, 0.2, 0.3], "t": 123.0, "type": "x"}),
+            &osc(),
+        );
         let addrs: Vec<_> = msgs.iter().map(|m| m.address.as_str()).collect();
         assert!(addrs.contains(&"/pieeg/channels/0"));
         assert!(addrs.contains(&"/pieeg/channels/2"));

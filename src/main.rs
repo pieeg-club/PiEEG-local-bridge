@@ -35,11 +35,15 @@ use tokio::sync::{mpsc, RwLock};
 use tokio::task::JoinHandle;
 use tray_icon::{
     menu::{Menu, MenuEvent, MenuItem},
-    TrayIconBuilder, Icon,
+    Icon, TrayIconBuilder,
 };
 
 #[derive(Parser, Debug)]
-#[command(name = "pieeg-local-bridge", version, about = "Vendor-neutral browser-to-local-network bridge (OSC).")]
+#[command(
+    name = "pieeg-local-bridge",
+    version,
+    about = "Vendor-neutral browser-to-local-network bridge (OSC)."
+)]
 struct Cli {
     /// Control-UI port (overrides saved config).
     #[arg(long)]
@@ -69,9 +73,9 @@ async fn resolve_target(host: &str, port: u16) -> Option<SocketAddr> {
 /// Create a simple tray icon (32x32 green square with "P" text).
 fn create_tray_icon() -> Result<Icon> {
     use image::{Rgba, RgbaImage};
-    
+
     let mut img = RgbaImage::from_pixel(32, 32, Rgba([0, 150, 136, 255])); // Teal background
-    
+
     // Draw a simple "P" shape (very basic)
     for y in 8..24 {
         for x in 10..12 {
@@ -93,11 +97,11 @@ fn create_tray_icon() -> Result<Icon> {
             img.put_pixel(x, y, Rgba([255, 255, 255, 255]));
         }
     }
-    
+
     let width = img.width();
     let height = img.height();
     let rgba = img.into_raw();
-    
+
     Icon::from_rgba(rgba, width, height).context("creating tray icon")
 }
 
@@ -105,8 +109,7 @@ fn create_tray_icon() -> Result<Icon> {
 async fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "info".into()),
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
         )
         .with_target(false)
         .compact()
@@ -147,12 +150,12 @@ async fn main() -> Result<()> {
 
     // ── Shared state + control channel ──────────────────────────────────────
     let (ctrl_tx, mut ctrl_rx) = mpsc::channel::<Ctrl>(32);
-    
+
     // Generate initial pairing code
     let initial_pairing_code = control::generate_pairing_code();
     let mut status = Status::default();
     status.pairing_code = initial_pairing_code.clone();
-    
+
     let state = Arc::new(AppState {
         config: RwLock::new(cfg),
         status: RwLock::new(status),
@@ -186,37 +189,42 @@ async fn main() -> Result<()> {
     // ── System tray ─────────────────────────────────────────────────────────
     let (tray_tx, mut tray_rx) = mpsc::channel::<String>(8);
     let ui_url_clone = ui_url.clone();
-    
+
     std::thread::spawn(move || {
         use tray_icon::menu::MenuId;
-        
+
         let icon = create_tray_icon().expect("failed to create tray icon");
-        
+
         let tray_menu = Menu::new();
         let show_item = MenuItem::with_id(MenuId::new("show"), "Show Control UI", true, None);
-        let regenerate_item = MenuItem::with_id(MenuId::new("regenerate"), "Regenerate Pairing Code", true, None);
+        let regenerate_item = MenuItem::with_id(
+            MenuId::new("regenerate"),
+            "Regenerate Pairing Code",
+            true,
+            None,
+        );
         let quit_item = MenuItem::with_id(MenuId::new("quit"), "Quit", true, None);
-        
+
         tray_menu.append(&show_item).unwrap();
         tray_menu.append(&regenerate_item).unwrap();
         tray_menu.append(&quit_item).unwrap();
-        
+
         let _tray = TrayIconBuilder::new()
             .with_menu(Box::new(tray_menu))
             .with_tooltip("PiEEG Local Bridge")
             .with_icon(icon)
             .build()
             .expect("failed to create tray icon");
-        
+
         let menu_channel = MenuEvent::receiver();
-        
+
         // Windows event loop
         #[cfg(windows)]
         {
             use windows::Win32::UI::WindowsAndMessaging::{
                 DispatchMessageW, GetMessageW, TranslateMessage, MSG,
             };
-            
+
             loop {
                 // Check for menu events first
                 while let Ok(event) = menu_channel.try_recv() {
@@ -235,7 +243,7 @@ async fn main() -> Result<()> {
                         _ => {}
                     }
                 }
-                
+
                 // Pump Windows messages
                 unsafe {
                     let mut msg = MSG::default();
@@ -246,7 +254,7 @@ async fn main() -> Result<()> {
                 }
             }
         }
-        
+
         // Non-Windows platforms
         #[cfg(not(windows))]
         {
@@ -270,7 +278,7 @@ async fn main() -> Result<()> {
             }
         }
     });
-    
+
     tracing::info!("System tray icon active (right-click for menu)");
 
     // ── Optional immediate connect (CLI or restored from config) ────────────

@@ -96,11 +96,7 @@ pub async fn run(state: Arc<AppState>, session_id: String) {
     }
 }
 
-async fn run_session(
-    state: &Arc<AppState>,
-    signaling_url: &str,
-    session_id: &str,
-) -> SessionEnd {
+async fn run_session(state: &Arc<AppState>, signaling_url: &str, session_id: &str) -> SessionEnd {
     // ── Build the peer connection (data-channel only) ───────────────────────
     let mut media = MediaEngine::default();
     if let Err(e) = media.register_default_codecs() {
@@ -138,8 +134,7 @@ async fn run_session(
                         st.ended = false;
                         st.last_error = None;
                     }
-                    RTCPeerConnectionState::Disconnected
-                    | RTCPeerConnectionState::Failed => {
+                    RTCPeerConnectionState::Disconnected | RTCPeerConnectionState::Failed => {
                         let _ = end_tx
                             .try_send(SessionEnd::Dropped(Some("peer connection lost".into())));
                     }

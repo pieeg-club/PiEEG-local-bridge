@@ -18,9 +18,15 @@ use std::path::PathBuf;
 pub const DEFAULT_SIGNALING_URL: &str = "https://pieeg-cloud.fly.dev";
 pub const DEFAULT_CONTROL_PORT: u16 = 47800;
 
-fn default_signaling_url() -> String { DEFAULT_SIGNALING_URL.to_string() }
-fn default_control_port() -> u16 { DEFAULT_CONTROL_PORT }
-fn default_true() -> bool { true }
+fn default_signaling_url() -> String {
+    DEFAULT_SIGNALING_URL.to_string()
+}
+fn default_control_port() -> u16 {
+    DEFAULT_CONTROL_PORT
+}
+fn default_true() -> bool {
+    true
+}
 
 /// Configuration for the built-in OSC adapter.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -41,9 +47,15 @@ pub struct OscConfig {
 }
 
 impl OscConfig {
-    fn default_host() -> String { "127.0.0.1".to_string() }
-    fn default_port() -> u16 { 9000 }
-    fn default_prefix() -> String { "/pieeg".to_string() }
+    fn default_host() -> String {
+        "127.0.0.1".to_string()
+    }
+    fn default_port() -> u16 {
+        9000
+    }
+    fn default_prefix() -> String {
+        "/pieeg".to_string()
+    }
 }
 
 impl Default for OscConfig {
@@ -127,12 +139,10 @@ impl Config {
 
     pub fn save(&self) -> Result<()> {
         let dir = Self::config_dir()?;
-        std::fs::create_dir_all(&dir)
-            .with_context(|| format!("creating {}", dir.display()))?;
+        std::fs::create_dir_all(&dir).with_context(|| format!("creating {}", dir.display()))?;
         let path = dir.join("config.json");
         let json = serde_json::to_string_pretty(self)?;
-        std::fs::write(&path, json)
-            .with_context(|| format!("writing {}", path.display()))?;
+        std::fs::write(&path, json).with_context(|| format!("writing {}", path.display()))?;
         Ok(())
     }
 }

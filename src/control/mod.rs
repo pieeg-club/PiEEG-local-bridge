@@ -24,9 +24,9 @@ use std::sync::Arc;
 use tower_http::cors::CorsLayer;
 use webrtc::api::media_engine::MediaEngine;
 use webrtc::api::APIBuilder;
+use webrtc::data_channel::RTCDataChannel;
 use webrtc::peer_connection::configuration::RTCConfiguration;
 use webrtc::peer_connection::sdp::session_description::RTCSessionDescription;
-use webrtc::data_channel::RTCDataChannel;
 
 const UI_HTML: &str = include_str!("ui.html");
 const TEST_HTML: &str = include_str!("test.html");
@@ -120,26 +120,24 @@ async fn signal(
         let status = state.status.read().await;
         status.pairing_code.clone()
     };
-    
+
     if req.session_id.trim().to_uppercase() != expected_code.to_uppercase() {
         return (
             StatusCode::FORBIDDEN,
             Json(json!({ "error": "invalid pairing code" })),
         );
     }
-    
+
     // Mark as paired
     {
         let mut s = state.status.write().await;
         s.paired = true;
         s.session_id = Some(req.session_id.clone());
     }
-    
+
     // Create WebRTC API
     let media_engine = MediaEngine::default();
-    let api = APIBuilder::new()
-        .with_media_engine(media_engine)
-        .build();
+    let api = APIBuilder::new().with_media_engine(media_engine).build();
 
     // Create peer connection (no STUN/TURN needed for localhost)
     let config = RTCConfiguration {
@@ -165,7 +163,7 @@ async fn signal(
         let state = Arc::clone(&state_clone);
         Box::pin(async move {
             tracing::info!("data channel opened: {}", dc.label());
-            
+
             // Update connection status
             {
                 let mut s = state.status.write().await;
@@ -180,7 +178,7 @@ async fn signal(
                         if let Ok(value) = serde_json::from_str::<serde_json::Value>(&text) {
                             let cfg = state.config.read().await;
                             let messages = crate::router::map_inbound(&value, &cfg.osc);
-                            
+
                             // Forward to OSC adapter
                             let _ = state.osc.as_ref().deliver(&messages).await;
                         }
@@ -219,26 +217,27 @@ async fn signal(
     }
 
     // Wait for ICE gathering to complete (optional, best-effort)
-    let _ = tokio::time::timeout(
-        std::time::Duration::from_secs(5),
-        async {
-            loop {
-                let state = peer.ice_gathering_state();
-                if format!("{:?}", state).contains("Complete") {
-                    break;
-                }
-                tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    let _ = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        loop {
+            let state = peer.ice_gathering_state();
+            if format!("{:?}", state).contains("Complete") {
+                break;
             }
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
         }
-    ).await;
+    })
+    .await;
 
     // Return the answer with all ICE candidates embedded
     let final_sdp = peer.local_description().await.unwrap().sdp;
 
-    (StatusCode::OK, Json(json!({
-        "type": "answer",
-        "sdp": final_sdp
-    })))
+    (
+        StatusCode::OK,
+        Json(json!({
+            "type": "answer",
+            "sdp": final_sdp
+        })),
+    )
 }
 
 #[derive(Deserialize)]
@@ -256,11 +255,21 @@ async fn update_osc(
 ) -> impl IntoResponse {
     {
         let mut cfg = state.config.write().await;
-        if let Some(v) = req.enabled { cfg.osc.enabled = v; }
-        if let Some(v) = req.host { cfg.osc.host = v; }
-        if let Some(v) = req.port { cfg.osc.port = v; }
-        if let Some(v) = req.prefix { cfg.osc.prefix = v; }
-        if let Some(v) = req.flatten { cfg.osc.flatten = v; }
+        if let Some(v) = req.enabled {
+            cfg.osc.enabled = v;
+        }
+        if let Some(v) = req.host {
+            cfg.osc.host = v;
+        }
+        if let Some(v) = req.port {
+            cfg.osc.port = v;
+        }
+        if let Some(v) = req.prefix {
+            cfg.osc.prefix = v;
+        }
+        if let Some(v) = req.flatten {
+            cfg.osc.flatten = v;
+        }
         let _ = cfg.save();
     }
     let _ = state.ctrl.send(Ctrl::ReloadOsc).await;
