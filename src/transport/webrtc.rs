@@ -82,7 +82,6 @@ impl From<IceServerCfg> for RTCIceServer {
             urls,
             username: cfg.username.unwrap_or_default(),
             credential: cfg.credential.unwrap_or_default(),
-            ..Default::default()
         }
     }
 }
