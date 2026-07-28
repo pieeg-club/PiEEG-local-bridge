@@ -3,7 +3,7 @@ name = "pieeg-local-bridge"
 version = "0.1.0"
 edition = "2021"
 description = "Vendor-neutral browser-to-local-network bridge with pluggable protocol adapters (OSC first)."
-license = "MIT"
+license = "CC-BY-NC-4.0"
 repository = "https://github.com/pieeg-club/PiEEG-server-plus"
 default-run = "pieeg-local-bridge"
 
