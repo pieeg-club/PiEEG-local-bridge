@@ -153,8 +153,10 @@ async fn main() -> Result<()> {
 
     // Generate initial pairing code
     let initial_pairing_code = control::generate_pairing_code();
-    let mut status = Status::default();
-    status.pairing_code = initial_pairing_code.clone();
+    let status = Status {
+        pairing_code: initial_pairing_code.clone(),
+        ..Default::default()
+    };
 
     let state = Arc::new(AppState {
         config: RwLock::new(cfg),

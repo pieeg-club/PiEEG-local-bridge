@@ -40,6 +40,72 @@ JSON stream into real OSC packets on `127.0.0.1` (or any host on your LAN).
 - **Cross-platform** — Windows, macOS, Linux.
 - **No cloud relay for data** — WebRTC handshake uses cloud signaling, then data is P2P.
 
+---
+
+## Installation
+
+### Quick Start (Recommended)
+
+Download the latest prebuilt binary for your platform — no compilation needed:
+
+**Windows**
+1. Download [pieeg-local-bridge-x86_64-pc-windows-msvc.zip](https://github.com/pieeg-club/PiEEG-local-bridge/releases/latest/download/pieeg-local-bridge-x86_64-pc-windows-msvc.zip)
+2. Extract the ZIP file
+3. Double-click `pieeg-local-bridge.exe`
+4. Look for the tray icon in your taskbar notification area (bottom-right)
+5. Right-click the tray icon → **Show Control UI** to see your pairing code
+
+**macOS**
+```bash
+# Apple Silicon (M1/M2/M3)
+curl -L https://github.com/pieeg-club/PiEEG-local-bridge/releases/latest/download/pieeg-local-bridge-aarch64-apple-darwin.tar.gz | tar xz
+cd pieeg-local-bridge-aarch64-apple-darwin
+./pieeg-local-bridge
+
+# Intel Macs
+curl -L https://github.com/pieeg-club/PiEEG-local-bridge/releases/latest/download/pieeg-local-bridge-x86_64-apple-darwin.tar.gz | tar xz
+cd pieeg-local-bridge-x86_64-apple-darwin
+./pieeg-local-bridge
+```
+
+**Linux**
+```bash
+# x86_64 (most desktop/laptop PCs)
+curl -L https://github.com/pieeg-club/PiEEG-local-bridge/releases/latest/download/pieeg-local-bridge-x86_64-unknown-linux-gnu.tar.gz | tar xz
+cd pieeg-local-bridge-x86_64-unknown-linux-gnu
+./pieeg-local-bridge
+
+# Raspberry Pi 4/5 (64-bit)
+curl -L https://github.com/pieeg-club/PiEEG-local-bridge/releases/latest/download/pieeg-local-bridge-aarch64-unknown-linux-gnu.tar.gz | tar xz
+cd pieeg-local-bridge-aarch64-unknown-linux-gnu
+./pieeg-local-bridge
+
+# Raspberry Pi 3/4 (32-bit)
+curl -L https://github.com/pieeg-club/PiEEG-local-bridge/releases/latest/download/pieeg-local-bridge-armv7-unknown-linux-gnueabihf.tar.gz | tar xz
+cd pieeg-local-bridge-armv7-unknown-linux-gnueabihf
+./pieeg-local-bridge
+```
+
+The bridge will:
+- Generate a 6-digit pairing code
+- Open the control UI in your browser (`http://127.0.0.1:47800`)
+- Add a tray icon to your system tray/notification area
+
+### From Source (Optional)
+
+Only needed if you want to modify the code or build for an unsupported platform:
+
+```bash
+git clone https://github.com/pieeg-club/PiEEG-local-bridge.git
+cd PiEEG-local-bridge
+cargo build --release
+./target/release/pieeg-local-bridge
+```
+
+Requires [Rust](https://rustup.rs/) 1.70+
+
+---
+
 ## How it works
 
 1. **Run the Local Bridge**. It generates a 6-digit pairing code (e.g. `KHSP3W`)
@@ -100,9 +166,13 @@ Flattening can be disabled in the UI to forward only explicit `osc` envelopes.
 | Config    | [`config.rs`](src/config.rs)                           | Persisted, hot-reloadable JSON config; vendor-agnostic CORS origins  |
 | Tray      | [`main.rs`](src/main.rs) (tray setup)                  | System tray icon with Show UI / Regenerate Code / Quit menu          |
 
-## Build & run
+---
 
-Requires a stable Rust toolchain.
+## Development
+
+### Build & Run from Source
+
+For development or custom builds. Requires Rust 1.70+.
 
 ```sh
 # Run in development (opens the control UI automatically)

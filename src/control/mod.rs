@@ -107,6 +107,7 @@ async fn disconnect(State(state): State<Arc<AppState>>) -> impl IntoResponse {
 struct SignalReq {
     sdp: String,
     #[serde(rename = "type")]
+    #[allow(dead_code)]
     sdp_type: String,
     session_id: String,
 }
