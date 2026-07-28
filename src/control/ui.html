@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pieeg Local Bridge</title>
+<style>
+  :root {
+    --bg: #080b10; --panel: rgba(13,17,23,0.92); --border: rgba(255,255,255,0.09);
+    --text: #e5e7eb; --muted: #9ca3af; --accent: #22d3ee; --accent2: #6366f1;
+    --good: #22c55e; --warn: #f59e0b; --bad: #ef4444;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: radial-gradient(1200px 600px at 50% -10%, #101826, var(--bg));
+    color: var(--text); font: 14px/1.5 Geist, system-ui, -apple-system, sans-serif;
+    min-height: 100vh; display: flex; justify-content: center; padding: 32px 16px;
+  }
+  .wrap { width: 100%; max-width: 560px; }
+  header { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+  .logo {
+    width: 40px; height: 40px; border-radius: 10px;
+    background: linear-gradient(135deg, var(--accent2), var(--accent));
+    display: grid; place-items: center; font-size: 22px;
+  }
+  h1 { font-size: 20px; margin: 0; font-weight: 700; }
+  .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+    padding: 18px; margin-bottom: 16px;
+  }
+  .card h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .6px;
+    color: var(--muted); margin: 0 0 12px; }
+  label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 4px; }
+  input {
+    width: 100%; background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 12px; color: var(--text); font-size: 14px;
+  }
+  input:focus { outline: none; border-color: var(--accent); }
+  .row { display: flex; gap: 10px; }
+  .row > * { flex: 1; }
+  button {
+    background: linear-gradient(90deg, var(--accent2), var(--accent)); color: #fff;
+    border: none; border-radius: 8px; padding: 11px 16px; font-size: 14px;
+    font-weight: 600; cursor: pointer; width: 100%;
+  }
+  button.ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .statline { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+  .dot.on { background: var(--good); box-shadow: 0 0 8px var(--good); }
+  .dot.err { background: var(--bad); }
+  .kv { display: flex; justify-content: space-between; font-size: 13px; padding: 3px 0; }
+  .kv .k { color: var(--muted); }
+  .pill { font-size: 11px; padding: 2px 8px; border-radius: 999px;
+    border: 1px solid var(--border); color: var(--muted); }
+  .disc { display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; margin-top: 6px; }
+  .disc button { width: auto; padding: 5px 10px; font-size: 12px; }
+  .muted { color: var(--muted); font-size: 12px; }
+  .toggle { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+  .toggle input { width: auto; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">🧠</div>
+    <div>
+      <h1>Pieeg Local Bridge</h1>
+      <div class="sub">Direct peer-to-peer stream to local OSC apps — privately, on your machine.</div>
+    </div>
+  </header>
+
+  <!-- Connection -->
+  <div class="card">
+    <h2>Pairing Code</h2>
+    <div class="muted" style="margin-bottom:12px">
+      In Pieeg Cloud, enter this code to connect directly to your bridge.
+    </div>
+    <div style="background:rgba(34,211,238,0.08); border:2px dashed var(--accent); border-radius:12px; padding:24px; text-align:center">
+      <div style="font-size:42px; font-weight:700; letter-spacing:8px; color:var(--accent); font-family:monospace" id="pairingCode">------</div>
+      <button class="ghost" id="regenerateBtn" style="margin-top:16px; width:auto; padding:8px 20px">Regenerate Code</button>
+    </div>
+    <div class="statline" style="margin-top:16px">
+      <span class="dot" id="connDot"></span>
+      <span id="connText">Waiting for connection</span>
+      <span class="pill" id="sessionPill" style="margin-left:auto; display:none"></span>
+    </div>
+    <div id="connectedInfo" style="display:none; margin-top:12px">
+      <div class="kv"><span class="k">Frames in</span><span id="framesIn">0</span></div>
+      <div class="kv"><span class="k">Messages out</span><span id="msgsOut">0</span></div>
+      <div class="kv"><span class="k">Last error</span><span id="lastErr">—</span></div>
+      <button class="ghost" id="disconnectBtn" style="margin-top:12px">Disconnect</button>
+    </div>
+  </div>
+
+  <!-- OSC destination -->
+  <div class="card">
+    <h2>OSC Destination</h2>
+    <div class="row">
+      <div style="flex:2">
+        <label for="oscHost">Host</label>
+        <input id="oscHost" value="127.0.0.1" />
+      </div>
+      <div style="flex:1">
+        <label for="oscPort">Port</label>
+        <input id="oscPort" type="number" value="9000" />
+      </div>
+    </div>
+    <label for="oscPrefix">Address prefix</label>
+    <input id="oscPrefix" value="/pieeg" />
+    <div class="toggle">
+      <input type="checkbox" id="oscFlatten" checked />
+      <label for="oscFlatten" style="margin:0">Auto-map incoming data to OSC addresses</label>
+    </div>
+    <button id="saveOsc" style="margin-top:14px">Save destination</button>
+  </div>
+
+  <!-- Discovered -->
+  <div class="card">
+    <h2>Discovered on your network</h2>
+    <div id="discList"><div class="muted">Scanning for OSC apps…</div></div>
+  </div>
+
+  <div class="muted" style="text-align:center">
+    Runs locally. The data channel is a direct, encrypted peer-to-peer link.
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const api = (path, opts) => fetch(path, opts).then(r => r.json());
+
+async function regenerateCode() {
+  $("regenerateBtn").disabled = true;
+  try { await api("/api/regenerate", { method: "POST" }); }
+  finally { $("regenerateBtn").disabled = false; }
+  refresh();
+}
+
+async function disconnect() {
+  await api("/api/disconnect", { method: "POST" });
+  refresh();
+}
+
+async function saveOsc() {
+  const body = {
+    host: $("oscHost").value.trim(),
+    port: Number($("oscPort").value) || 9000,
+    prefix: $("oscPrefix").value.trim() || "/pieeg",
+    flatten: $("oscFlatten").checked,
+    enabled: true,
+  };
+  await api("/api/osc", { method: "PUT", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body) });
+  refresh();
+}
+
+function useTarget(host, port) {
+  $("oscHost").value = host; $("oscPort").value = port; saveOsc();
+}
+
+let oscDirty = false;
+["oscHost","oscPort","oscPrefix"].forEach(id => $(id).addEventListener("input", () => oscDirty = true));
+$("oscFlatten").addEventListener("change", () => oscDirty = true);
+
+function renderStatus(d) {
+  const s = d.status, c = d.config;
+  
+  // Show pairing code
+  $("pairingCode").textContent = s.pairing_code || "------";
+  
+  // Connection status
+  const dot = $("connDot");
+  dot.className = "dot" + (s.connected ? " on" : (s.last_error ? " err" : ""));
+  $("connText").textContent = s.connected ? "Connected & forwarding"
+    : s.ended ? "Session ended" : s.paired ? "Connecting…" : "Waiting for connection";
+  
+  const pill = $("sessionPill");
+  if (s.session_id) { pill.style.display = ""; pill.textContent = "session " + s.session_id.slice(0,8); }
+  else pill.style.display = "none";
+
+  $("connectedInfo").style.display = s.paired ? "" : "none";
+  $("framesIn").textContent = s.frames_in;
+  $("msgsOut").textContent = s.messages_out;
+  $("lastErr").textContent = s.last_error || "—";
+
+  if (!oscDirty && c && c.osc) {
+    $("oscHost").value = c.osc.host;
+    $("oscPort").value = c.osc.port;
+    $("oscPrefix").value = c.osc.prefix;
+    $("oscFlatten").checked = c.osc.flatten;
+  }
+
+  const list = $("discList");
+  if (!d.discovered || d.discovered.length === 0) {
+    list.innerHTML = '<div class="muted">No OSC apps found yet. You can still type a host above.</div>';
+  } else {
+    list.innerHTML = "";
+    d.discovered.forEach(x => {
+      const el = document.createElement("div");
+      el.className = "disc";
+      el.innerHTML = `<div><b>${x.name}</b><div class="muted">${x.host}:${x.port}</div></div>`;
+      const b = document.createElement("button");
+      b.textContent = "Use"; b.onclick = () => useTarget(x.host, x.port);
+      el.appendChild(b); list.appendChild(el);
+    });
+  }
+}
+
+async function refresh() {
+  try { renderStatus(await api("/api/status")); } catch {}
+}
+
+$("regenerateBtn").onclick = regenerateCode;
+$("disconnectBtn").onclick = disconnect;
+$("saveOsc").onclick = () => { saveOsc(); oscDirty = false; };
+
+refresh();
+setInterval(refresh, 1000);
+</script>
+</body>
+</html>
