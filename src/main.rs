@@ -74,34 +74,14 @@ async fn resolve_target(host: &str, port: u16) -> Option<SocketAddr> {
         .and_then(|mut it| it.next())
 }
 
-/// Create a simple tray icon (32x32 green square with "P" text).
+/// Create tray icon from embedded icon.png.
 fn create_tray_icon() -> Result<Icon> {
-    use image::{Rgba, RgbaImage};
-
-    let mut img = RgbaImage::from_pixel(32, 32, Rgba([0, 150, 136, 255])); // Teal background
-
-    // Draw a simple "P" shape (very basic)
-    for y in 8..24 {
-        for x in 10..12 {
-            img.put_pixel(x, y, Rgba([255, 255, 255, 255]));
-        }
-    }
-    for y in 8..10 {
-        for x in 10..18 {
-            img.put_pixel(x, y, Rgba([255, 255, 255, 255]));
-        }
-    }
-    for y in 10..16 {
-        for x in 16..18 {
-            img.put_pixel(x, y, Rgba([255, 255, 255, 255]));
-        }
-    }
-    for y in 14..16 {
-        for x in 10..18 {
-            img.put_pixel(x, y, Rgba([255, 255, 255, 255]));
-        }
-    }
-
+    // Load embedded icon.png
+    let icon_bytes = include_bytes!("../icon.png");
+    let img = image::load_from_memory(icon_bytes)
+        .context("loading icon.png")?
+        .to_rgba8();
+    
     let width = img.width();
     let height = img.height();
     let rgba = img.into_raw();
