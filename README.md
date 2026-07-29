@@ -230,7 +230,3 @@ the tray icon for:
 - **Regenerate Pairing Code** — creates a new cloud session (new 6-character code)
   and disconnects any active session.
 - **Quit** — stops the bridge cleanly.
-
-## License
-
-MIT — see [`LICENSE`](../LICENSE).
