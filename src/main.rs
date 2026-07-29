@@ -13,6 +13,9 @@
 // output protocol means adding one Adapter — nothing else changes.
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Hide console window on Windows (run as tray-only GUI app)
+#![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
+
 mod adapters;
 mod config;
 mod control;
