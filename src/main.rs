@@ -98,7 +98,7 @@ fn create_tray_icon() -> Result<Icon> {
     let img = image::load_from_memory(icon_bytes)
         .context("loading icon.png")?
         .to_rgba8();
-    
+
     let width = img.width();
     let height = img.height();
     let rgba = img.into_raw();
@@ -336,7 +336,7 @@ async fn main() -> Result<()> {
 
         loop {
             tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
-            
+
             let status = status_watcher_state.status.read().await;
             let current_status = if status.ended {
                 ConnectionStatus::Disconnected

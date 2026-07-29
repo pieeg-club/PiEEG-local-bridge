@@ -31,7 +31,10 @@ pub async fn check_for_update() -> Result<Option<(String, String)>> {
     let release: Release = client.get(&url).send().await?.json().await?;
 
     // Strip 'v' prefix if present (v0.1.3 -> 0.1.3)
-    let remote_version = release.tag_name.strip_prefix('v').unwrap_or(&release.tag_name);
+    let remote_version = release
+        .tag_name
+        .strip_prefix('v')
+        .unwrap_or(&release.tag_name);
 
     // Simple version comparison (assumes semver format)
     if is_newer_version(CURRENT_VERSION, remote_version) {
@@ -44,11 +47,8 @@ pub async fn check_for_update() -> Result<Option<(String, String)>> {
 /// Returns true if `remote` is newer than `current`.
 /// Simple string comparison assuming semver: "0.1.3" < "0.2.0"
 fn is_newer_version(current: &str, remote: &str) -> bool {
-    let parse_version = |v: &str| -> Vec<u32> {
-        v.split('.')
-            .filter_map(|s| s.parse::<u32>().ok())
-            .collect()
-    };
+    let parse_version =
+        |v: &str| -> Vec<u32> { v.split('.').filter_map(|s| s.parse::<u32>().ok()).collect() };
 
     let current_parts = parse_version(current);
     let remote_parts = parse_version(remote);

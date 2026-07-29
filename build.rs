@@ -16,7 +16,7 @@ fn main() {
             }
         }
     }
-    
+
     // Re-run if icon files change
     println!("cargo:rerun-if-changed=icon.png");
     println!("cargo:rerun-if-changed=icon.ico");
