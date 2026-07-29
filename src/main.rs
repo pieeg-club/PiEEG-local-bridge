@@ -24,6 +24,7 @@ mod message;
 mod router;
 mod state;
 mod transport;
+mod update;
 
 use crate::adapters::osc::OscAdapter;
 use crate::adapters::Adapter;
@@ -208,6 +209,7 @@ async fn main() -> Result<()> {
 
     // ── System tray ─────────────────────────────────────────────────────────
     let (tray_tx, mut tray_rx) = mpsc::channel::<String>(8);
+    let (update_tx, mut update_rx) = mpsc::channel::<(String, String)>(1);
     let ui_url_clone = ui_url.clone();
 
     std::thread::spawn(move || {
@@ -223,10 +225,12 @@ async fn main() -> Result<()> {
             true,
             None,
         );
+        let update_item = MenuItem::with_id(MenuId::new("update"), "Check for Updates", true, None);
         let quit_item = MenuItem::with_id(MenuId::new("quit"), "Quit", true, None);
 
         tray_menu.append(&show_item).unwrap();
         tray_menu.append(&regenerate_item).unwrap();
+        tray_menu.append(&update_item).unwrap();
         tray_menu.append(&quit_item).unwrap();
 
         let _tray = TrayIconBuilder::new()
@@ -255,6 +259,9 @@ async fn main() -> Result<()> {
                         }
                         "regenerate" => {
                             let _ = tray_tx.blocking_send("regenerate".to_string());
+                        }
+                        "update" => {
+                            let _ = tray_tx.blocking_send("check_update".to_string());
                         }
                         "quit" => {
                             let _ = tray_tx.blocking_send("quit".to_string());
@@ -288,6 +295,9 @@ async fn main() -> Result<()> {
                         "regenerate" => {
                             let _ = tray_tx.blocking_send("regenerate".to_string());
                         }
+                        "update" => {
+                            let _ = tray_tx.blocking_send("check_update".to_string());
+                        }
                         "quit" => {
                             let _ = tray_tx.blocking_send("quit".to_string());
                             break;
@@ -300,6 +310,25 @@ async fn main() -> Result<()> {
     });
 
     tracing::info!("System tray icon active (right-click for menu)");
+
+    // ── Background update check ─────────────────────────────────────────────
+    let update_tx_clone = update_tx.clone();
+    tokio::spawn(async move {
+        // Wait 5 seconds after startup before checking
+        tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+        match update::check_for_update().await {
+            Ok(Some((version, url))) => {
+                tracing::info!("Update available: {version}");
+                let _ = update_tx_clone.send((version, url)).await;
+            }
+            Ok(None) => {
+                tracing::debug!("No updates available");
+            }
+            Err(e) => {
+                tracing::debug!("Update check failed: {e:#}");
+            }
+        }
+    });
 
     // ── Optional immediate connect (CLI or restored from config) ────────────
     if let Some(id) = cli.connect {
@@ -316,10 +345,33 @@ async fn main() -> Result<()> {
     let mut transport: Option<JoinHandle<()>> = None;
     loop {
         tokio::select! {
+            Some((version, url)) = update_rx.recv() => {
+                tracing::info!("📦 Update available: {version} — {url}");
+                // Open releases page in browser
+                let _ = webbrowser::open(&url);
+            }
             Some(tray_event) = tray_rx.recv() => {
                 match tray_event.as_str() {
                     "regenerate" => {
                         let _ = ctrl_tx.send(Ctrl::RegenerateCode).await;
+                    }
+                    "check_update" => {
+                        // Spawn immediate update check
+                        let update_tx_manual = update_tx.clone();
+                        tokio::spawn(async move {
+                            match update::check_for_update().await {
+                                Ok(Some((version, url))) => {
+                                    tracing::info!("Update available: {version}");
+                                    let _ = update_tx_manual.send((version, url)).await;
+                                }
+                                Ok(None) => {
+                                    tracing::info!("You are running the latest version");
+                                }
+                                Err(e) => {
+                                    tracing::warn!("Update check failed: {e:#}");
+                                }
+                            }
+                        });
                     }
                     "quit" => {
                         tracing::info!("shutting down from tray");
