@@ -42,6 +42,23 @@ use tray_icon::{
     Icon, TrayIconBuilder,
 };
 
+#[derive(Debug, Clone, PartialEq)]
+enum ConnectionStatus {
+    Disconnected,
+    Connecting,
+    Connected,
+}
+
+impl ConnectionStatus {
+    fn as_str(&self) -> &str {
+        match self {
+            ConnectionStatus::Disconnected => "● Disconnected",
+            ConnectionStatus::Connecting => "◐ Connecting...",
+            ConnectionStatus::Connected => "● Connected",
+        }
+    }
+}
+
 #[derive(Parser, Debug)]
 #[command(
     name = "pieeg-local-bridge",
@@ -189,6 +206,7 @@ async fn main() -> Result<()> {
 
     // ── System tray ─────────────────────────────────────────────────────────
     let (tray_tx, mut tray_rx) = mpsc::channel::<String>(8);
+    let (tray_status_tx, tray_status_rx) = std::sync::mpsc::channel::<ConnectionStatus>();
     let (update_tx, mut update_rx) = mpsc::channel::<(String, String)>(1);
     let ui_url_clone = ui_url.clone();
 
@@ -198,6 +216,12 @@ async fn main() -> Result<()> {
         let icon = create_tray_icon().expect("failed to create tray icon");
 
         let tray_menu = Menu::new();
+        let status_item = MenuItem::with_id(
+            MenuId::new("status"),
+            ConnectionStatus::Disconnected.as_str(),
+            false, // disabled - not clickable
+            None,
+        );
         let show_item = MenuItem::with_id(MenuId::new("show"), "Show Control UI", true, None);
         let regenerate_item = MenuItem::with_id(
             MenuId::new("regenerate"),
@@ -208,6 +232,7 @@ async fn main() -> Result<()> {
         let update_item = MenuItem::with_id(MenuId::new("update"), "Check for Updates", true, None);
         let quit_item = MenuItem::with_id(MenuId::new("quit"), "Quit", true, None);
 
+        tray_menu.append(&status_item).unwrap();
         tray_menu.append(&show_item).unwrap();
         tray_menu.append(&regenerate_item).unwrap();
         tray_menu.append(&update_item).unwrap();
@@ -230,7 +255,12 @@ async fn main() -> Result<()> {
             };
 
             loop {
-                // Check for menu events first
+                // Check for status updates
+                while let Ok(new_status) = tray_status_rx.try_recv() {
+                    status_item.set_text(new_status.as_str());
+                }
+
+                // Check for menu events
                 while let Ok(event) = menu_channel.try_recv() {
                     let id_str = event.id.0;
                     match id_str.as_str() {
@@ -266,6 +296,11 @@ async fn main() -> Result<()> {
         #[cfg(not(windows))]
         {
             loop {
+                // Check for status updates
+                if let Ok(new_status) = tray_status_rx.try_recv() {
+                    status_item.set_text(new_status.as_str());
+                }
+
                 if let Ok(event) = menu_channel.recv() {
                     let id_str = event.id.0;
                     match id_str.as_str() {
@@ -290,6 +325,35 @@ async fn main() -> Result<()> {
     });
 
     tracing::info!("System tray icon active (right-click for menu)");
+
+    // ── Background status watcher ───────────────────────────────────────────
+    // Monitors connection state and updates tray menu item
+    let status_watcher_state = state.clone();
+    let status_watcher_tx = tray_status_tx.clone();
+    tokio::spawn(async move {
+        let mut last_status = ConnectionStatus::Disconnected;
+        let _ = status_watcher_tx.send(last_status.clone());
+
+        loop {
+            tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+            
+            let status = status_watcher_state.status.read().await;
+            let current_status = if status.ended {
+                ConnectionStatus::Disconnected
+            } else if status.connected {
+                ConnectionStatus::Connected
+            } else if status.paired {
+                ConnectionStatus::Connecting
+            } else {
+                ConnectionStatus::Disconnected
+            };
+
+            if current_status != last_status {
+                let _ = status_watcher_tx.send(current_status.clone());
+                last_status = current_status;
+            }
+        }
+    });
 
     // ── Background update check ─────────────────────────────────────────────
     let update_tx_clone = update_tx.clone();
