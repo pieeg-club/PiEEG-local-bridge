@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Pieeg Local Bridge</title>
+<title>PiEEG Local Bridge</title>
 <style>
   :root {
     --bg: #080b10; --panel: rgba(13,17,23,0.92); --border: rgba(255,255,255,0.09);
@@ -20,9 +20,9 @@
   header { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
   .logo {
     width: 40px; height: 40px; border-radius: 10px;
-    background: linear-gradient(135deg, var(--accent2), var(--accent));
-    display: grid; place-items: center; font-size: 22px;
+    overflow: hidden; display: flex; align-items: center; justify-content: center;
   }
+  .logo img { width: 100%; height: 100%; object-fit: cover; }
   h1 { font-size: 20px; margin: 0; font-weight: 700; }
   .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
   .card {
@@ -65,16 +65,16 @@
 <body>
 <div class="wrap">
   <header>
-    <div class="logo">🧠</div>
+    <div class="logo"><img src="/icon.png" alt="PiEEG" /></div>
     <div>
-      <h1>Pieeg Local Bridge</h1>
+      <h1>PiEEG Local Bridge</h1>
       <div class="sub">Direct peer-to-peer stream to local OSC apps — privately, on your machine.</div>
     </div>
   </header>
 
   <!-- Connection confirmation prompt (hidden until a peer requests to connect) -->
   <div class="card" id="confirmCard" style="display:none; border-color: var(--warn); box-shadow: 0 0 0 1px var(--warn) inset">
-    <h2 style="color: var(--warn)">⚠ Connection request</h2>
+    <h2 style="color: var(--warn)">Connection request</h2>
     <div class="muted" style="margin-bottom:12px">
       Someone entered your pairing code and wants to stream to this bridge.
       Only accept if you recognise them.
@@ -90,7 +90,7 @@
   <div class="card">
     <h2>Pairing Code</h2>
     <div class="muted" style="margin-bottom:12px">
-      In Pieeg Cloud, enter this code to connect directly to your bridge.
+      In PiEEG Cloud, enter this code to connect directly to your bridge.
     </div>
     <div style="background:rgba(34,211,238,0.08); border:2px dashed var(--accent); border-radius:12px; padding:24px; text-align:center">
       <div style="font-size:42px; font-weight:700; letter-spacing:8px; color:var(--accent); font-family:monospace" id="pairingCode">------</div>
@@ -134,7 +134,7 @@
   <!-- Discovered -->
   <div class="card">
     <h2>Discovered on your network</h2>
-    <div id="discList"><div class="muted">Scanning for OSC apps…</div></div>
+    <div id="discList"><div class="muted">Scanning for OSC apps...</div></div>
   </div>
 
   <div class="muted" style="text-align:center">
@@ -229,7 +229,7 @@ function renderStatus(d) {
   const dot = $("connDot");
   dot.className = "dot" + (s.connected ? " on" : (s.last_error ? " err" : ""));
   $("connText").textContent = s.connected ? "Connected & forwarding"
-    : s.ended ? "Session ended" : s.paired ? "Connecting…" : "Waiting for connection";
+    : s.ended ? "Session ended" : s.paired ? "Connecting..." : "Waiting for connection";
   
   const pill = $("sessionPill");
   if (s.session_id) { pill.style.display = ""; pill.textContent = "session " + s.session_id.slice(0,8); }

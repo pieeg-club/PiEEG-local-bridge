@@ -55,6 +55,7 @@ pub fn router(state: Arc<AppState>, allowed_origins: Vec<String>) -> Router {
     Router::new()
         .route("/", get(index))
         .route("/test", get(test_page))
+        .route("/icon.png", get(icon))
         .route("/api/health", get(health))
         .route("/api/status", get(status))
         .route("/api/regenerate", post(regenerate))
@@ -73,6 +74,12 @@ async fn index() -> Html<&'static str> {
 
 async fn test_page() -> Html<&'static str> {
     Html(TEST_HTML)
+}
+
+async fn icon() -> impl IntoResponse {
+    use axum::http::header;
+    let bytes = include_bytes!("../../icon.png");
+    ([(header::CONTENT_TYPE, "image/png")], bytes.as_slice())
 }
 
 async fn health() -> impl IntoResponse {
