@@ -414,7 +414,10 @@ async fn await_confirmation(
     let peer = build_peer_info(offer_sdp, meta);
     tracing::info!(
         "connection request from {} — awaiting user confirmation",
-        peer.origin.as_deref().or(peer.name.as_deref()).unwrap_or("unknown peer")
+        peer.origin
+            .as_deref()
+            .or(peer.name.as_deref())
+            .unwrap_or("unknown peer")
     );
 
     let (tx, rx) = oneshot::channel::<bool>();
