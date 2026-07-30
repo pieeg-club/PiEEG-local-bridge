@@ -58,6 +58,8 @@ pub fn router(state: Arc<AppState>, allowed_origins: Vec<String>) -> Router {
         .route("/api/health", get(health))
         .route("/api/status", get(status))
         .route("/api/regenerate", post(regenerate))
+        .route("/api/confirm", post(confirm))
+        .route("/api/reject", post(reject))
         .route("/api/disconnect", post(disconnect))
         .route("/api/osc", put(update_osc))
         .route("/signal", post(signal))
@@ -101,6 +103,30 @@ async fn regenerate(State(state): State<Arc<AppState>>) -> impl IntoResponse {
 async fn disconnect(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let _ = state.ctrl.send(Ctrl::Disconnect).await;
     Json(json!({ "ok": true }))
+}
+
+/// Accept the pending connection request, letting the WebRTC handshake proceed.
+async fn confirm(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    if state.resolve_pending(true).await {
+        (StatusCode::OK, Json(json!({ "ok": true })))
+    } else {
+        (
+            StatusCode::CONFLICT,
+            Json(json!({ "error": "no pending request" })),
+        )
+    }
+}
+
+/// Decline the pending connection request; the peer is dropped.
+async fn reject(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    if state.resolve_pending(false).await {
+        (StatusCode::OK, Json(json!({ "ok": true })))
+    } else {
+        (
+            StatusCode::CONFLICT,
+            Json(json!({ "error": "no pending request" })),
+        )
+    }
 }
 
 #[derive(Deserialize)]

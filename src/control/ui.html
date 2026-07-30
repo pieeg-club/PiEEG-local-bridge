@@ -72,6 +72,20 @@
     </div>
   </header>
 
+  <!-- Connection confirmation prompt (hidden until a peer requests to connect) -->
+  <div class="card" id="confirmCard" style="display:none; border-color: var(--warn); box-shadow: 0 0 0 1px var(--warn) inset">
+    <h2 style="color: var(--warn)">⚠ Connection request</h2>
+    <div class="muted" style="margin-bottom:12px">
+      Someone entered your pairing code and wants to stream to this bridge.
+      Only accept if you recognise them.
+    </div>
+    <div id="peerDetails"></div>
+    <div class="row" style="margin-top:16px">
+      <button class="ghost" id="rejectBtn" style="border-color: var(--bad); color: var(--bad)">Decline</button>
+      <button id="confirmBtn">Accept &amp; connect</button>
+    </div>
+  </div>
+
   <!-- Connection -->
   <div class="card">
     <h2>Pairing Code</h2>
@@ -144,6 +158,39 @@ async function disconnect() {
   refresh();
 }
 
+async function confirmPeer() {
+  $("confirmBtn").disabled = true; $("rejectBtn").disabled = true;
+  try { await api("/api/confirm", { method: "POST" }); }
+  finally { $("confirmBtn").disabled = false; $("rejectBtn").disabled = false; }
+  refresh();
+}
+
+async function rejectPeer() {
+  $("confirmBtn").disabled = true; $("rejectBtn").disabled = true;
+  try { await api("/api/reject", { method: "POST" }); }
+  finally { $("confirmBtn").disabled = false; $("rejectBtn").disabled = false; }
+  refresh();
+}
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => (
+    { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]
+  ));
+}
+
+function renderPeer(peer) {
+  const rows = [];
+  if (peer.name) rows.push(["Name", esc(peer.name)]);
+  if (peer.origin) rows.push(["Origin", esc(peer.origin)]);
+  if (peer.user_agent) rows.push(["Browser", esc(peer.user_agent)]);
+  if (peer.ip_addresses && peer.ip_addresses.length)
+    rows.push(["IP address", peer.ip_addresses.map(esc).join(", ")]);
+  if (peer.candidate_types && peer.candidate_types.length)
+    rows.push(["Route", peer.candidate_types.map(esc).join(", ")]);
+  if (rows.length === 0) rows.push(["Peer", "No details available"]);
+  return rows.map(([k, v]) => `<div class="kv"><span class="k">${k}</span><span>${v}</span></div>`).join("");
+}
+
 async function saveOsc() {
   const body = {
     host: $("oscHost").value.trim(),
@@ -169,6 +216,14 @@ function renderStatus(d) {
   
   // Show pairing code
   $("pairingCode").textContent = s.pairing_code || "------";
+
+  // Pending connection request — surface the confirmation prompt.
+  if (s.awaiting_confirmation && s.pending_peer) {
+    $("confirmCard").style.display = "";
+    $("peerDetails").innerHTML = renderPeer(s.pending_peer);
+  } else {
+    $("confirmCard").style.display = "none";
+  }
   
   // Connection status
   const dot = $("connDot");
@@ -214,6 +269,8 @@ async function refresh() {
 
 $("regenerateBtn").onclick = regenerateCode;
 $("disconnectBtn").onclick = disconnect;
+$("confirmBtn").onclick = confirmPeer;
+$("rejectBtn").onclick = rejectPeer;
 $("saveOsc").onclick = () => { saveOsc(); oscDirty = false; };
 
 refresh();

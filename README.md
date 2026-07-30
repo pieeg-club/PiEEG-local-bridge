@@ -34,6 +34,7 @@ JSON stream into real OSC packets on `127.0.0.1` (or any host on your LAN).
 - **System tray** — runs quietly in background; right-click to show UI, regenerate code, or quit.
 - **Direct P2P connection** — WebRTC data channel; all data stays local (loopback/LAN).
 - **Reversed pairing flow** — bridge requests a session from the cloud and gets back a 6-character share code; you enter it in Pieeg Cloud.
+- **User confirmation required** — when someone enters your pairing code, you see who's connecting (name, origin, IP, route) and must explicitly accept or decline before the connection proceeds.
 - **Encrypted transport** — DTLS for the P2P data channel; signaling uses HTTPS.
 - **STUN/TURN aware** — ICE servers are provided by the cloud session for reliable NAT traversal (falls back to public STUN).
 - **Automatic discovery** — finds local OSC apps via mDNS (`_osc._udp`).
@@ -111,11 +112,14 @@ cargo build --release
 2. In **Pieeg Cloud**, click **Connect to Local Bridge** and enter the share code.
    The web app resolves it via `GET /v1/webrtc/session/<code>` to obtain the same
    ICE configuration.
-3. The browser and bridge perform a **one-time WebRTC handshake** (SDP/ICE exchange
-   via the cloud signaling server).
-4. A **direct P2P data channel** opens between browser and bridge. All data flows
+3. The bridge receives the connection request and **pauses for your confirmation**.
+   The control UI opens automatically, showing who's trying to connect (name, origin,
+   browser, IP addresses, connection route). You must explicitly **Accept** or **Decline**.
+4. Once accepted, the browser and bridge complete the **one-time WebRTC handshake**
+   (SDP/ICE exchange via the cloud signaling server).
+5. A **direct P2P data channel** opens between browser and bridge. All data flows
    **locally** (loopback or LAN) — nothing is relayed through the cloud.
-5. Incoming data frames are mapped to OSC and sent to your chosen destination.
+6. Incoming data frames are mapped to OSC and sent to your chosen destination.
 
 **Share code regeneration**: Right-click the system tray icon and select
 "Regenerate Pairing Code" to create a new cloud session (new code + ICE servers)
@@ -210,6 +214,11 @@ Settings are persisted as JSON and edited from the UI (no manual editing needed)
 
 ## Security
 
+- **User confirmation gate** — when someone enters your pairing code, the bridge
+  pauses and shows you who's connecting (self-declared name/origin plus network
+  facts from ICE candidates: IP addresses, connection route). You must explicitly
+  accept before the WebRTC handshake proceeds. Requests timeout after 2 minutes
+  if unanswered.
 - **P2P data channel encrypted with DTLS** — WebRTC data flows directly between
   browser and bridge (loopback/LAN), not through the cloud.
 - **One-time signaling handshake** — SDP/ICE exchange uses HTTPS; only occurs at
@@ -230,3 +239,7 @@ the tray icon for:
 - **Regenerate Pairing Code** — creates a new cloud session (new 6-character code)
   and disconnects any active session.
 - **Quit** — stops the bridge cleanly.
+
+**Connection requests**: When someone enters your pairing code, the tray status
+changes to `⚠ Confirm connection…` and the control UI opens automatically so you
+can review the peer's details and accept or decline.

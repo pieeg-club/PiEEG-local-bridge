@@ -45,6 +45,7 @@ use tray_icon::{
 #[derive(Debug, Clone, PartialEq)]
 enum ConnectionStatus {
     Disconnected,
+    AwaitingConfirmation,
     Connecting,
     Connected,
 }
@@ -53,6 +54,7 @@ impl ConnectionStatus {
     fn as_str(&self) -> &str {
         match self {
             ConnectionStatus::Disconnected => "● Disconnected",
+            ConnectionStatus::AwaitingConfirmation => "⚠ Confirm connection…",
             ConnectionStatus::Connecting => "◐ Connecting...",
             ConnectionStatus::Connected => "● Connected",
         }
@@ -180,6 +182,7 @@ async fn main() -> Result<()> {
         discovered: RwLock::new(Vec::new()),
         ctrl: ctrl_tx.clone(),
         ice_servers: RwLock::new(initial_ice_servers),
+        pending_decision: tokio::sync::Mutex::new(None),
     });
 
     // ── Background: mDNS discovery ──────────────────────────────────────────
@@ -330,6 +333,7 @@ async fn main() -> Result<()> {
     // Monitors connection state and updates tray menu item
     let status_watcher_state = state.clone();
     let status_watcher_tx = tray_status_tx.clone();
+    let status_watcher_ui_url = ui_url.clone();
     tokio::spawn(async move {
         let mut last_status = ConnectionStatus::Disconnected;
         let _ = status_watcher_tx.send(last_status.clone());
@@ -338,7 +342,9 @@ async fn main() -> Result<()> {
             tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
 
             let status = status_watcher_state.status.read().await;
-            let current_status = if status.ended {
+            let current_status = if status.awaiting_confirmation {
+                ConnectionStatus::AwaitingConfirmation
+            } else if status.ended {
                 ConnectionStatus::Disconnected
             } else if status.connected {
                 ConnectionStatus::Connected
@@ -349,6 +355,11 @@ async fn main() -> Result<()> {
             };
 
             if current_status != last_status {
+                // A new connection request just arrived — surface the prompt by
+                // bringing the control UI to the user's attention.
+                if current_status == ConnectionStatus::AwaitingConfirmation {
+                    let _ = webbrowser::open(&status_watcher_ui_url);
+                }
                 let _ = status_watcher_tx.send(current_status.clone());
                 last_status = current_status;
             }

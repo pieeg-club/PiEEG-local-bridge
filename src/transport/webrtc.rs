@@ -23,12 +23,12 @@
 
 use crate::adapters::Adapter;
 use crate::router;
-use crate::state::AppState;
+use crate::state::{AppState, PeerInfo};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, oneshot};
 use webrtc::api::media_engine::MediaEngine;
 use webrtc::api::APIBuilder;
 use webrtc::data_channel::data_channel_message::DataChannelMessage;
@@ -47,6 +47,23 @@ fn now_ms() -> u64 {
 #[derive(Deserialize)]
 struct OfferResp {
     sdp: String,
+    /// Optional metadata the peer supplies about itself through signaling.
+    /// Absent on older/minimal signaling servers — we then fall back to
+    /// whatever we can read from the SDP alone.
+    #[serde(default)]
+    peer: Option<PeerMeta>,
+}
+
+/// Self-declared peer identity carried alongside the offer. Advisory only —
+/// treated as untrusted display text, never used for authorization.
+#[derive(Deserialize, Default)]
+struct PeerMeta {
+    #[serde(default)]
+    name: Option<String>,
+    #[serde(default)]
+    origin: Option<String>,
+    #[serde(default, rename = "userAgent", alias = "user_agent")]
+    user_agent: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -130,6 +147,8 @@ pub async fn create_session(signaling_url: &str) -> anyhow::Result<SessionInfo> 
 enum SessionEnd {
     /// The peer closed cleanly — stop reconnecting.
     Ended,
+    /// The user declined the connection — stop and clear status.
+    Rejected,
     /// The connection dropped or failed to establish — reconnect if allowed.
     Dropped(Option<String>),
 }
@@ -151,6 +170,14 @@ pub async fn run(state: Arc<AppState>, session_id: String) {
                 let mut s = state.status.write().await;
                 s.connected = false;
                 s.ended = true;
+                break;
+            }
+            SessionEnd::Rejected => {
+                clear_pending(&state).await;
+                let mut s = state.status.write().await;
+                s.connected = false;
+                s.ended = true;
+                s.last_error = Some("connection declined".into());
                 break;
             }
             SessionEnd::Dropped(err) => {
@@ -261,10 +288,24 @@ async fn run_session(state: &Arc<AppState>, signaling_url: &str, session_id: &st
     };
     let base = signaling_url.trim_end_matches('/');
 
-    let offer_sdp = match fetch_offer(&http, base, session_id).await {
-        Ok(sdp) => sdp,
+    let (offer_sdp, peer_meta) = match fetch_offer(&http, base, session_id).await {
+        Ok(v) => v,
         Err(e) => return SessionEnd::Dropped(Some(format!("fetch offer: {e}"))),
     };
+
+    // ── Human-in-the-loop confirmation ──────────────────────────────────────
+    // Before we complete the handshake, let the user see who is trying to
+    // connect and explicitly accept or decline. We only prompt once per
+    // session: a confirmed session that later drops reconnects silently.
+    let already_confirmed = state.status.read().await.confirmed;
+    if !already_confirmed {
+        match await_confirmation(state, &offer_sdp, peer_meta).await {
+            Confirmation::Accepted => {
+                state.status.write().await.confirmed = true;
+            }
+            Confirmation::Declined => return SessionEnd::Rejected,
+        }
+    }
 
     let offer = match RTCSessionDescription::offer(offer_sdp) {
         Ok(o) => o,
@@ -325,11 +366,13 @@ async fn handle_frame(state: &Arc<AppState>, data: &[u8]) {
 }
 
 /// Poll the signaling endpoint until the browser's SDP offer is available.
+/// Returns the offer SDP together with any peer metadata the signaling server
+/// attached to it.
 async fn fetch_offer(
     http: &reqwest::Client,
     base: &str,
     session_id: &str,
-) -> anyhow::Result<String> {
+) -> anyhow::Result<(String, Option<PeerMeta>)> {
     let url = format!("{base}/v1/signal/{session_id}/offer");
     // Poll for up to ~3 minutes; the user has just been shown the code and needs
     // time to open the web app and enter it. Polling at 1 Hz keeps signaling
@@ -341,7 +384,7 @@ async fn fetch_offer(
             if resp.status().as_u16() != 204 {
                 if let Ok(offer) = resp.json::<OfferResp>().await {
                     if !offer.sdp.is_empty() {
-                        return Ok(offer.sdp);
+                        return Ok((offer.sdp, offer.peer));
                     }
                 }
             }
@@ -349,6 +392,105 @@ async fn fetch_offer(
         tokio::time::sleep(Duration::from_millis(1000)).await;
     }
     anyhow::bail!("timed out waiting for offer")
+}
+
+/// Outcome of the accept/decline prompt.
+enum Confirmation {
+    Accepted,
+    Declined,
+}
+
+/// How long the prompt stays open before we auto-decline. Keeps a forgotten
+/// prompt from parking the session forever.
+const CONFIRM_TIMEOUT: Duration = Duration::from_secs(120);
+
+/// Publish the pending peer's details, then block until the user accepts or
+/// declines from the control UI (or the prompt times out).
+async fn await_confirmation(
+    state: &Arc<AppState>,
+    offer_sdp: &str,
+    meta: Option<PeerMeta>,
+) -> Confirmation {
+    let peer = build_peer_info(offer_sdp, meta);
+    tracing::info!(
+        "connection request from {} — awaiting user confirmation",
+        peer.origin.as_deref().or(peer.name.as_deref()).unwrap_or("unknown peer")
+    );
+
+    let (tx, rx) = oneshot::channel::<bool>();
+    {
+        *state.pending_decision.lock().await = Some(tx);
+        let mut s = state.status.write().await;
+        s.awaiting_confirmation = true;
+        s.pending_peer = Some(peer);
+    }
+
+    let accepted = tokio::select! {
+        decision = rx => decision.unwrap_or(false),
+        _ = tokio::time::sleep(CONFIRM_TIMEOUT) => {
+            tracing::warn!("connection request timed out — auto-declining");
+            false
+        }
+    };
+
+    clear_pending(state).await;
+
+    if accepted {
+        Confirmation::Accepted
+    } else {
+        Confirmation::Declined
+    }
+}
+
+/// Clear any pending-confirmation state (called after a decision, timeout, or
+/// when a session is torn down).
+async fn clear_pending(state: &Arc<AppState>) {
+    *state.pending_decision.lock().await = None;
+    let mut s = state.status.write().await;
+    s.awaiting_confirmation = false;
+    s.pending_peer = None;
+}
+
+/// Assemble the peer description shown to the user: self-declared metadata
+/// (advisory) plus network facts parsed from the offer's ICE candidates.
+fn build_peer_info(offer_sdp: &str, meta: Option<PeerMeta>) -> PeerInfo {
+    let mut info = PeerInfo {
+        requested_ms: now_ms(),
+        ..Default::default()
+    };
+    if let Some(m) = meta {
+        info.name = m.name.filter(|s| !s.trim().is_empty());
+        info.origin = m.origin.filter(|s| !s.trim().is_empty());
+        info.user_agent = m.user_agent.filter(|s| !s.trim().is_empty());
+    }
+
+    // Parse `a=candidate:` lines for remote IPs and candidate types.
+    //   a=candidate:<foundation> <component> <transport> <priority> <ip> <port> typ <type> ...
+    for line in offer_sdp.lines() {
+        let line = line.trim();
+        let rest = match line.strip_prefix("a=candidate:") {
+            Some(r) => r,
+            None => continue,
+        };
+        let tokens: Vec<&str> = rest.split_whitespace().collect();
+        if let Some(ip) = tokens.get(4) {
+            let ip = ip.to_string();
+            // Skip mDNS-obfuscated candidates (`.local`) — not user-meaningful.
+            if !ip.ends_with(".local") && !info.ip_addresses.contains(&ip) {
+                info.ip_addresses.push(ip);
+            }
+        }
+        if let Some(pos) = tokens.iter().position(|t| *t == "typ") {
+            if let Some(kind) = tokens.get(pos + 1) {
+                let kind = kind.to_string();
+                if !info.candidate_types.contains(&kind) {
+                    info.candidate_types.push(kind);
+                }
+            }
+        }
+    }
+
+    info
 }
 
 /// POST the SDP answer back to the signaling endpoint.
