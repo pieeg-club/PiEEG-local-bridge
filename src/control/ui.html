@@ -4,173 +4,978 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>PiEEG Local Bridge</title>
+<link rel="icon" type="image/png" href="/icon.png" />
 <style>
   :root {
-    --bg: #080b10; --panel: rgba(13,17,23,0.92); --border: rgba(255,255,255,0.09);
-    --text: #e5e7eb; --muted: #9ca3af; --accent: #22d3ee; --accent2: #6366f1;
-    --good: #22c55e; --warn: #f59e0b; --bad: #ef4444;
+    --bg: #06090e;
+    --bg-elevated: #0c1119;
+    --panel: rgba(13, 18, 28, 0.88);
+    --panel-hover: rgba(18, 25, 38, 0.95);
+    --surface: rgba(255, 255, 255, 0.03);
+    --surface-strong: rgba(255, 255, 255, 0.06);
+    --border: rgba(255, 255, 255, 0.08);
+    --border-strong: rgba(255, 255, 255, 0.15);
+    --text: #f1f5f9;
+    --text-secondary: #cbd5e1;
+    --muted: #64748b;
+    --accent: #22d3ee;
+    --accent-dim: rgba(34, 211, 238, 0.12);
+    --accent-border: rgba(34, 211, 238, 0.35);
+    --accent2: #6366f1;
+    --good: #10b981;
+    --good-dim: rgba(16, 185, 129, 0.12);
+    --warn: #f59e0b;
+    --warn-dim: rgba(245, 158, 11, 0.12);
+    --bad: #ef4444;
+    --bad-dim: rgba(239, 68, 68, 0.12);
+    --radius-lg: 14px;
+    --radius-md: 10px;
+    --radius-sm: 7px;
+    --font-sans: "Inter", "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-mono: "JetBrains Mono", "Cascadia Code", "SF Mono", Consolas, monospace;
   }
-  * { box-sizing: border-box; }
+
+  * {
+    box-sizing: border-box;
+  }
+
   body {
-    margin: 0; background: radial-gradient(1200px 600px at 50% -10%, #101826, var(--bg));
-    color: var(--text); font: 14px/1.5 Geist, system-ui, -apple-system, sans-serif;
-    min-height: 100vh; display: flex; justify-content: center; padding: 32px 16px;
+    margin: 0;
+    background-color: var(--bg);
+    background-image:
+      radial-gradient(900px 450px at 50% -10%, rgba(34, 211, 238, 0.09), transparent 70%),
+      radial-gradient(700px 400px at 85% 10%, rgba(99, 102, 241, 0.07), transparent 65%),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+      linear-gradient(to right, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+    background-size: 100% 100%, 100% 100%, 32px 32px, 32px 32px;
+    color: var(--text);
+    font: 13.5px/1.5 var(--font-sans);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 28px 16px 40px;
+    -webkit-font-smoothing: antialiased;
   }
-  .wrap { width: 100%; max-width: 560px; }
-  header { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+
+  .wrap {
+    width: 100%;
+    max-width: 640px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  /* Header */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 4px 2px 6px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+
   .logo {
-    width: 40px; height: 40px; border-radius: 10px;
-    overflow: hidden; display: flex; align-items: center; justify-content: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 11px;
+    overflow: hidden;
+    flex-shrink: 0;
+    border: 1px solid var(--border-strong);
+    background: var(--bg-elevated);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
   }
-  .logo img { width: 100%; height: 100%; object-fit: cover; }
-  h1 { font-size: 20px; margin: 0; font-weight: 700; }
-  .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+
+  .logo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .brand-text h1 {
+    font-size: 17px;
+    margin: 0;
+    font-weight: 650;
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+
+  .brand-text .sub {
+    color: var(--muted);
+    font-size: 12px;
+    margin-top: 1px;
+  }
+
+  /* Status Badge */
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 550;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    white-space: nowrap;
+    transition: all 0.2s ease;
+  }
+
+  .status-badge.ready {
+    border-color: rgba(34, 211, 238, 0.28);
+    background: rgba(34, 211, 238, 0.07);
+    color: var(--accent);
+  }
+
+  .status-badge.connected {
+    border-color: rgba(16, 185, 129, 0.35);
+    background: var(--good-dim);
+    color: #34d399;
+  }
+
+  .status-badge.warn {
+    border-color: rgba(245, 158, 11, 0.4);
+    background: var(--warn-dim);
+    color: #fbbf24;
+  }
+
+  .status-badge.error {
+    border-color: rgba(239, 68, 68, 0.35);
+    background: var(--bad-dim);
+    color: #f87171;
+  }
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+  }
+
+  .dot.ready {
+    background: var(--accent);
+    box-shadow: 0 0 8px rgba(34, 211, 238, 0.6);
+  }
+
+  .dot.on {
+    background: var(--good);
+    box-shadow: 0 0 10px var(--good);
+    animation: pulse-green 2s infinite;
+  }
+
+  .dot.warn {
+    background: var(--warn);
+    box-shadow: 0 0 10px var(--warn);
+    animation: pulse-warn 1.4s infinite;
+  }
+
+  .dot.err {
+    background: var(--bad);
+    box-shadow: 0 0 8px var(--bad);
+  }
+
+  @keyframes pulse-green {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.55; transform: scale(0.92); }
+  }
+
+  @keyframes pulse-warn {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* Pipeline Strip */
+  .pipeline {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr auto 1fr;
+    align-items: center;
+    gap: 8px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 10px 14px;
+    backdrop-filter: blur(12px);
+  }
+
+  .pipe-node {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .pipe-label {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    font-weight: 600;
+  }
+
+  .pipe-val {
+    font-size: 12.5px;
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 1px;
+  }
+
+  .pipe-arrow {
+    color: var(--muted);
+    font-size: 12px;
+    opacity: 0.5;
+    user-select: none;
+  }
+
+  .pipe-arrow.active {
+    color: var(--good);
+    opacity: 1;
+  }
+
+  /* Cards */
   .card {
-    background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
-    padding: 18px; margin-bottom: 16px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.28);
   }
-  .card h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .6px;
-    color: var(--muted); margin: 0 0 12px; }
-  label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 4px; }
-  input {
-    width: 100%; background: rgba(255,255,255,0.04); border: 1px solid var(--border);
-    border-radius: 8px; padding: 10px 12px; color: var(--text); font-size: 14px;
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 14px;
   }
-  input:focus { outline: none; border-color: var(--accent); }
-  .row { display: flex; gap: 10px; }
-  .row > * { flex: 1; }
+
+  .card-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 650;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-secondary);
+    margin: 0;
+  }
+
+  .card-title svg {
+    width: 15px;
+    height: 15px;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+
+  /* Confirmation Card */
+  .card.confirm-card {
+    border-color: rgba(245, 158, 11, 0.55);
+    background: linear-gradient(180deg, rgba(245, 158, 11, 0.09), rgba(13, 18, 28, 0.96));
+    box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.25) inset, 0 12px 32px rgba(0, 0, 0, 0.45);
+  }
+
+  .confirm-card .card-title {
+    color: #fbbf24;
+  }
+
+  .confirm-card .card-title svg {
+    color: #fbbf24;
+  }
+
+  .peer-table {
+    background: rgba(0, 0, 0, 0.28);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 10px 14px;
+    margin: 12px 0 16px;
+  }
+
+  /* Pairing Code Box */
+  .code-panel {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    background: linear-gradient(135deg, rgba(34, 211, 238, 0.06), rgba(99, 102, 241, 0.05));
+    border: 1px solid var(--accent-border);
+    border-radius: var(--radius-md);
+    padding: 16px 18px;
+  }
+
+  .code-slots {
+    display: flex;
+    gap: 7px;
+    cursor: pointer;
+    user-select: all;
+  }
+
+  .code-char {
+    width: 40px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(6, 9, 14, 0.75);
+    border: 1px solid rgba(34, 211, 238, 0.28);
+    border-radius: 8px;
+    font-family: var(--font-mono);
+    font-size: 23px;
+    font-weight: 700;
+    color: var(--accent);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35) inset;
+    transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+
+  .code-slots:hover .code-char {
+    border-color: var(--accent);
+  }
+
+  .code-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  /* Telemetry Grid */
+  .telemetry-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 14px;
+  }
+
+  .metric-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+  }
+
+  .metric-label {
+    font-size: 11px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .metric-value {
+    font-family: var(--font-mono);
+    font-size: 17px;
+    font-weight: 650;
+    color: var(--text);
+    margin-top: 3px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .metric-sub {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Error Banner */
+  .error-banner {
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 12px;
+    padding: 9px 12px;
+    border-radius: var(--radius-sm);
+    background: var(--bad-dim);
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    color: #fca5a5;
+    font-size: 12px;
+    font-family: var(--font-mono);
+  }
+
+  /* Forms & Inputs */
+  .form-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 12px;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+
+  .label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .hint {
+    font-size: 11.5px;
+    color: var(--muted);
+  }
+
+  .mono-hint {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--accent);
+  }
+
+  input[type="text"],
+  input[type="number"] {
+    width: 100%;
+    background: rgba(6, 9, 14, 0.65);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    padding: 9px 12px;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  input[type="text"]:focus,
+  input[type="number"]:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.12);
+  }
+
+  /* Custom Switch */
+  .switch-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    margin-top: 12px;
+    cursor: pointer;
+  }
+
+  .switch-text {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .switch-title {
+    font-size: 12.5px;
+    font-weight: 550;
+    color: var(--text);
+  }
+
+  .switch {
+    position: relative;
+    display: inline-block;
+    width: 38px;
+    height: 21px;
+    flex-shrink: 0;
+  }
+
+  .switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    margin: 0;
+  }
+
+  .slider {
+    position: absolute;
+    cursor: pointer;
+    inset: 0;
+    background-color: rgba(255, 255, 255, 0.12);
+    border: 1px solid var(--border-strong);
+    transition: 0.2s;
+    border-radius: 999px;
+  }
+
+  .slider:before {
+    position: absolute;
+    content: "";
+    height: 15px;
+    width: 15px;
+    left: 2px;
+    bottom: 2px;
+    background-color: var(--text);
+    transition: 0.2s;
+    border-radius: 50%;
+  }
+
+  .switch input:checked + .slider {
+    background-color: rgba(34, 211, 238, 0.25);
+    border-color: var(--accent);
+  }
+
+  .switch input:checked + .slider:before {
+    transform: translateX(17px);
+    background-color: var(--accent);
+  }
+
+  /* Buttons */
+  .btn-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .btn-row > * {
+    flex: 1;
+  }
+
   button {
-    background: linear-gradient(90deg, var(--accent2), var(--accent)); color: #fff;
-    border: none; border-radius: 8px; padding: 11px 16px; font-size: 14px;
-    font-weight: 600; cursor: pointer; width: 100%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    background: linear-gradient(135deg, var(--accent2), #0891b2);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: var(--radius-sm);
+    padding: 9px 14px;
+    font: 550 13px/1.2 var(--font-sans);
+    cursor: pointer;
+    transition: filter 0.15s ease, transform 0.1s ease, border-color 0.15s ease, background 0.15s ease;
   }
-  button.ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
-  button:disabled { opacity: .5; cursor: not-allowed; }
-  .statline { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
-  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
-  .dot.on { background: var(--good); box-shadow: 0 0 8px var(--good); }
-  .dot.err { background: var(--bad); }
-  .kv { display: flex; justify-content: space-between; font-size: 13px; padding: 3px 0; }
-  .kv .k { color: var(--muted); }
-  .pill { font-size: 11px; padding: 2px 8px; border-radius: 999px;
-    border: 1px solid var(--border); color: var(--muted); }
-  .disc { display: flex; justify-content: space-between; align-items: center;
-    padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; margin-top: 6px; }
-  .disc button { width: auto; padding: 5px 10px; font-size: 12px; }
-  .muted { color: var(--muted); font-size: 12px; }
-  .toggle { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
-  .toggle input { width: auto; }
+
+  button:hover:not(:disabled) {
+    filter: brightness(1.1);
+  }
+
+  button:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+
+  button.ghost {
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    color: var(--text-secondary);
+  }
+
+  button.ghost:hover:not(:disabled) {
+    background: var(--surface-strong);
+    color: var(--text);
+    border-color: rgba(255, 255, 255, 0.25);
+    filter: none;
+  }
+
+  button.danger {
+    background: var(--bad-dim);
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    color: #fca5a5;
+  }
+
+  button.danger:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: var(--bad);
+    color: #fff;
+  }
+
+  button.sm {
+    padding: 7px 12px;
+    font-size: 12px;
+  }
+
+  button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  button svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+  }
+
+  /* Key-Value & Pills */
+  .kv {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    font-size: 12.5px;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  }
+
+  .kv:last-child {
+    border-bottom: none;
+  }
+
+  .kv .k {
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+
+  .kv .v {
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    text-align: right;
+    word-break: break-all;
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+
+  .pill.active {
+    color: var(--accent);
+    border-color: var(--accent-border);
+    background: var(--accent-dim);
+  }
+
+  .pill.dirty {
+    color: #fbbf24;
+    border-color: rgba(245, 158, 11, 0.4);
+    background: var(--warn-dim);
+  }
+
+  /* Discovered List */
+  .disc-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .disc {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    transition: border-color 0.15s ease;
+  }
+
+  .disc.selected {
+    border-color: var(--accent-border);
+    background: rgba(34, 211, 238, 0.05);
+  }
+
+  .disc-info {
+    min-width: 0;
+  }
+
+  .disc-name {
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--text);
+  }
+
+  .disc-addr {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--muted);
+  }
+
+  .empty-state {
+    padding: 14px;
+    text-align: center;
+    background: var(--surface);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  /* Footer */
+  footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 4px 4px 0;
+    font-size: 11.5px;
+    color: var(--muted);
+  }
+
+  footer a {
+    color: var(--text-secondary);
+    text-decoration: none;
+    border-bottom: 1px dotted var(--muted);
+  }
+
+  footer a:hover {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  @media (max-width: 520px) {
+    .code-panel {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .code-slots {
+      justify-content: center;
+    }
+    .code-actions {
+      flex-direction: row;
+    }
+    .code-actions > * {
+      flex: 1;
+    }
+    .pipeline {
+      grid-template-columns: 1fr;
+      gap: 6px;
+    }
+    .pipe-arrow {
+      display: none;
+    }
+    .form-grid {
+      grid-template-columns: 1fr;
+    }
+  }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <div class="logo"><img src="/icon.png" alt="PiEEG" /></div>
-    <div>
-      <h1>PiEEG Local Bridge</h1>
-      <div class="sub">Direct peer-to-peer stream to local OSC apps — privately, on your machine.</div>
+    <div class="brand">
+      <div class="logo"><img src="/icon.png" alt="PiEEG" /></div>
+      <div class="brand-text">
+        <h1>PiEEG Local Bridge</h1>
+        <div class="sub">WebRTC P2P data channel to local UDP/OSC gateway</div>
+      </div>
+    </div>
+    <div class="status-badge" id="statusBadge">
+      <span class="dot" id="connDot"></span>
+      <span id="connText">Initializing</span>
     </div>
   </header>
 
+  <!-- Live Pipeline Topology -->
+  <div class="pipeline" aria-label="Signal pipeline">
+    <div class="pipe-node">
+      <span class="pipe-label">1. WebRTC Peer</span>
+      <span class="pipe-val" id="pipePeer">Waiting for offer</span>
+    </div>
+    <div class="pipe-arrow" id="pipeArrow1">&rarr;</div>
+    <div class="pipe-node">
+      <span class="pipe-label">2. Router</span>
+      <span class="pipe-val" id="pipeRouter">/pieeg (flatten)</span>
+    </div>
+    <div class="pipe-arrow" id="pipeArrow2">&rarr;</div>
+    <div class="pipe-node">
+      <span class="pipe-label">3. OSC UDP Sink</span>
+      <span class="pipe-val" id="pipeOsc">127.0.0.1:9000</span>
+    </div>
+  </div>
+
   <!-- Connection confirmation prompt (hidden until a peer requests to connect) -->
-  <div class="card" id="confirmCard" style="display:none; border-color: var(--warn); box-shadow: 0 0 0 1px var(--warn) inset">
-    <h2 style="color: var(--warn)">Connection request</h2>
-    <div class="muted" style="margin-bottom:12px">
-      Someone entered your pairing code and wants to stream to this bridge.
-      Only accept if you recognise them.
+  <div class="card confirm-card" id="confirmCard" style="display:none">
+    <div class="card-header">
+      <h2 class="card-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+        Incoming Connection Request
+      </h2>
+      <span class="pill dirty" id="confirmTimer">Awaiting approval</span>
     </div>
-    <div id="peerDetails"></div>
-    <div class="row" style="margin-top:16px">
-      <button class="ghost" id="rejectBtn" style="border-color: var(--bad); color: var(--bad)">Decline</button>
-      <button id="confirmBtn">Accept &amp; connect</button>
+    <div class="hint">
+      A browser peer presented your pairing code and requested a WebRTC data channel. Verify the origin and network route below before accepting.
     </div>
-  </div>
-
-  <!-- Connection -->
-  <div class="card">
-    <h2>Pairing Code</h2>
-    <div class="muted" style="margin-bottom:12px">
-      In PiEEG Cloud, enter this code to connect directly to your bridge.
-    </div>
-    <div style="background:rgba(34,211,238,0.08); border:2px dashed var(--accent); border-radius:12px; padding:24px; text-align:center">
-      <div style="font-size:42px; font-weight:700; letter-spacing:8px; color:var(--accent); font-family:monospace" id="pairingCode">------</div>
-      <button class="ghost" id="regenerateBtn" style="margin-top:16px; width:auto; padding:8px 20px">Regenerate Code</button>
-    </div>
-    <div class="statline" style="margin-top:16px">
-      <span class="dot" id="connDot"></span>
-      <span id="connText">Waiting for connection</span>
-      <span class="pill" id="sessionPill" style="margin-left:auto; display:none"></span>
-    </div>
-    <div id="connectedInfo" style="display:none; margin-top:12px">
-      <div class="kv"><span class="k">Frames in</span><span id="framesIn">0</span></div>
-      <div class="kv"><span class="k">Messages out</span><span id="msgsOut">0</span></div>
-      <div class="kv"><span class="k">Last error</span><span id="lastErr">—</span></div>
-      <button class="ghost" id="disconnectBtn" style="margin-top:12px">Disconnect</button>
+    <div class="peer-table" id="peerDetails"></div>
+    <div class="btn-row">
+      <button class="danger" id="rejectBtn" type="button">Decline</button>
+      <button id="confirmBtn" type="button">Accept &amp; Connect</button>
     </div>
   </div>
 
-  <!-- OSC destination -->
+  <!-- Pairing & Telemetry Card -->
   <div class="card">
-    <h2>OSC Destination</h2>
-    <div class="row">
-      <div style="flex:2">
-        <label for="oscHost">Host</label>
-        <input id="oscHost" value="127.0.0.1" />
+    <div class="card-header">
+      <h2 class="card-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+        Pairing Code &amp; Session
+      </h2>
+      <span class="pill" id="sessionPill" style="display:none"></span>
+    </div>
+    <div class="hint" style="margin-bottom: 12px">
+      Enter this 6-character code in your browser application to open a direct DTLS-encrypted data channel.
+    </div>
+
+    <div class="code-panel">
+      <div>
+        <div id="pairingCode" style="display:none">------</div>
+        <div class="code-slots" id="codeSlots" title="Click to copy pairing code">
+          <span class="code-char">-</span>
+          <span class="code-char">-</span>
+          <span class="code-char">-</span>
+          <span class="code-char">-</span>
+          <span class="code-char">-</span>
+          <span class="code-char">-</span>
+        </div>
       </div>
-      <div style="flex:1">
-        <label for="oscPort">Port</label>
-        <input id="oscPort" type="number" value="9000" />
+      <div class="code-actions">
+        <button class="ghost sm" id="copyBtn" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          <span id="copyBtnText">Copy Code</span>
+        </button>
+        <button class="ghost sm" id="regenerateBtn" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+          <span>New Code</span>
+        </button>
       </div>
     </div>
-    <label for="oscPrefix">Address prefix</label>
-    <input id="oscPrefix" value="/pieeg" />
-    <div class="toggle">
-      <input type="checkbox" id="oscFlatten" checked />
-      <label for="oscFlatten" style="margin:0">Auto-map incoming data to OSC addresses</label>
+
+    <div class="telemetry-grid" id="connectedInfo">
+      <div class="metric-box">
+        <div class="metric-label">
+          <span>Frames In</span>
+          <span class="metric-sub" id="fpsRate">0/s</span>
+        </div>
+        <div class="metric-value" id="framesIn">0</div>
+      </div>
+      <div class="metric-box">
+        <div class="metric-label">
+          <span>Messages Out</span>
+          <span class="metric-sub" id="msgRate">0/s</span>
+        </div>
+        <div class="metric-value" id="msgsOut">0</div>
+      </div>
+      <div class="metric-box">
+        <div class="metric-label">
+          <span>Last Frame</span>
+        </div>
+        <div class="metric-value" id="lastFrameAge" style="font-size: 14px; margin-top: 6px">Idle</div>
+      </div>
     </div>
-    <button id="saveOsc" style="margin-top:14px">Save destination</button>
+
+    <div class="error-banner" id="errorBanner">
+      <span>Last error: <strong id="lastErr">-</strong></span>
+    </div>
+
+    <div id="disconnectRow" style="display:none; margin-top: 12px">
+      <button class="danger sm" id="disconnectBtn" type="button" style="width: 100%">
+        Disconnect Active Session
+      </button>
+    </div>
   </div>
 
-  <!-- Discovered -->
+  <!-- OSC Destination Card -->
   <div class="card">
-    <h2>Discovered on your network</h2>
-    <div id="discList"><div class="muted">Scanning for OSC apps...</div></div>
+    <div class="card-header">
+      <h2 class="card-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg>
+        OSC Output Destination
+      </h2>
+      <div style="display:flex; align-items:center; gap:8px">
+        <span class="pill dirty" id="oscDirtyPill" style="display:none">Unsaved</span>
+        <span class="pill active" id="oscTargetPill">udp://127.0.0.1:9000</span>
+      </div>
+    </div>
+
+    <div class="form-grid">
+      <div class="field">
+        <label for="oscHost">Target Host / IP</label>
+        <input id="oscHost" type="text" value="127.0.0.1" placeholder="127.0.0.1" spellcheck="false" />
+      </div>
+      <div class="field">
+        <label for="oscPort">UDP Port</label>
+        <input id="oscPort" type="number" min="1" max="65535" value="9000" placeholder="9000" />
+      </div>
+    </div>
+
+    <div class="field" style="margin-top: 12px">
+      <div class="label-row">
+        <label for="oscPrefix">Address Prefix</label>
+        <span class="mono-hint" id="prefixPreview">/pieeg/channels/0</span>
+      </div>
+      <input id="oscPrefix" type="text" value="/pieeg" placeholder="/pieeg" spellcheck="false" />
+    </div>
+
+    <label class="switch-row" for="oscFlatten">
+      <div class="switch-text">
+        <span class="switch-title">Flatten JSON payloads to OSC paths</span>
+        <span class="hint">Walks incoming JSON objects into address paths. Explicit <code>{"osc": ...}</code> envelopes always forward verbatim.</span>
+      </div>
+      <span class="switch">
+        <input type="checkbox" id="oscFlatten" checked />
+        <span class="slider"></span>
+      </span>
+    </label>
+
+    <label class="switch-row" for="oscEnabled" style="margin-top: 8px">
+      <div class="switch-text">
+        <span class="switch-title">Enable UDP forwarding</span>
+        <span class="hint">When disabled, incoming WebRTC frames are received but not emitted to the UDP socket.</span>
+      </div>
+      <span class="switch">
+        <input type="checkbox" id="oscEnabled" checked />
+        <span class="slider"></span>
+      </span>
+    </label>
+
+    <div style="margin-top: 14px; display: flex; justify-content: flex-end">
+      <button id="saveOsc" type="button" style="width: 100%">Apply OSC Configuration</button>
+    </div>
   </div>
 
-  <div class="muted" style="text-align:center">
-    Runs locally. The data channel is a direct, encrypted peer-to-peer link.
+  <!-- Discovered Endpoints Card -->
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        Local mDNS Discovery (_osc._udp)
+      </h2>
+      <span class="pill" id="discCount">0 found</span>
+    </div>
+    <div class="disc-list" id="discList">
+      <div class="empty-state">Scanning local network for mDNS _osc._udp services...</div>
+    </div>
   </div>
+
+  <footer>
+    <span>Signaling: <strong id="sigUrlText">https://pieeg-cloud.fly.dev</strong></span>
+    <span><a href="/test">WebRTC Loopback Test</a></span>
+  </footer>
 </div>
 
 <script>
 const $ = (id) => document.getElementById(id);
-const api = (path, opts) => fetch(path, opts).then(r => r.json());
+const api = (path, opts) => fetch(path, opts).then(r => {
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+});
 
-async function regenerateCode() {
-  $("regenerateBtn").disabled = true;
-  try { await api("/api/regenerate", { method: "POST" }); }
-  finally { $("regenerateBtn").disabled = false; }
-  refresh();
-}
-
-async function disconnect() {
-  await api("/api/disconnect", { method: "POST" });
-  refresh();
-}
-
-async function confirmPeer() {
-  $("confirmBtn").disabled = true; $("rejectBtn").disabled = true;
-  try { await api("/api/confirm", { method: "POST" }); }
-  finally { $("confirmBtn").disabled = false; $("rejectBtn").disabled = false; }
-  refresh();
-}
-
-async function rejectPeer() {
-  $("confirmBtn").disabled = true; $("rejectBtn").disabled = true;
-  try { await api("/api/reject", { method: "POST" }); }
-  finally { $("confirmBtn").disabled = false; $("rejectBtn").disabled = false; }
-  refresh();
-}
+let oscDirty = false;
+let prevFrames = null;
+let prevMsgs = null;
+let prevSampleTs = null;
 
 function esc(s) {
   return String(s).replace(/[&<>"']/g, c => (
@@ -178,100 +983,323 @@ function esc(s) {
   ));
 }
 
+function updatePrefixPreview() {
+  const raw = ($("oscPrefix").value.trim() || "/pieeg").replace(/\/+$/, "");
+  const normalized = raw.startsWith("/") ? raw : "/" + raw;
+  $("prefixPreview").textContent = $("oscFlatten").checked
+    ? `${normalized}/channels/0`
+    : "Explicit {\"osc\": ...} only";
+}
+
+function markOscDirty() {
+  oscDirty = true;
+  $("oscDirtyPill").style.display = "";
+  updatePrefixPreview();
+}
+
+["oscHost", "oscPort", "oscPrefix"].forEach(id => {
+  $(id).addEventListener("input", markOscDirty);
+  $(id).addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      saveOsc();
+    }
+  });
+});
+$("oscFlatten").addEventListener("change", markOscDirty);
+$("oscEnabled").addEventListener("change", markOscDirty);
+
+async function copyPairingCode() {
+  const code = ($("pairingCode").textContent || "").trim();
+  if (!code || code === "------") return;
+  try {
+    await navigator.clipboard.writeText(code);
+    $("copyBtnText").textContent = "Copied";
+    setTimeout(() => { $("copyBtnText").textContent = "Copy Code"; }, 1600);
+  } catch {}
+}
+
+async function regenerateCode() {
+  $("regenerateBtn").disabled = true;
+  try {
+    await api("/api/regenerate", { method: "POST" });
+    prevFrames = null;
+    prevMsgs = null;
+  } catch {}
+  finally { $("regenerateBtn").disabled = false; }
+  refresh();
+}
+
+async function disconnect() {
+  $("disconnectBtn").disabled = true;
+  try { await api("/api/disconnect", { method: "POST" }); }
+  catch {}
+  finally { $("disconnectBtn").disabled = false; }
+  refresh();
+}
+
+async function confirmPeer() {
+  $("confirmBtn").disabled = true;
+  $("rejectBtn").disabled = true;
+  try { await api("/api/confirm", { method: "POST" }); }
+  catch {}
+  finally {
+    $("confirmBtn").disabled = false;
+    $("rejectBtn").disabled = false;
+  }
+  refresh();
+}
+
+async function rejectPeer() {
+  $("confirmBtn").disabled = true;
+  $("rejectBtn").disabled = true;
+  try { await api("/api/reject", { method: "POST" }); }
+  catch {}
+  finally {
+    $("confirmBtn").disabled = false;
+    $("rejectBtn").disabled = false;
+  }
+  refresh();
+}
+
 function renderPeer(peer) {
   const rows = [];
-  if (peer.name) rows.push(["Name", esc(peer.name)]);
-  if (peer.origin) rows.push(["Origin", esc(peer.origin)]);
-  if (peer.user_agent) rows.push(["Browser", esc(peer.user_agent)]);
+  if (peer.name) rows.push(["Peer Name", esc(peer.name)]);
+  if (peer.origin) rows.push(["Web Origin", esc(peer.origin)]);
+  if (peer.user_agent) rows.push(["User Agent", esc(peer.user_agent)]);
   if (peer.ip_addresses && peer.ip_addresses.length)
-    rows.push(["IP address", peer.ip_addresses.map(esc).join(", ")]);
+    rows.push(["Candidate IPs", peer.ip_addresses.map(esc).join(", ")]);
   if (peer.candidate_types && peer.candidate_types.length)
-    rows.push(["Route", peer.candidate_types.map(esc).join(", ")]);
-  if (rows.length === 0) rows.push(["Peer", "No details available"]);
-  return rows.map(([k, v]) => `<div class="kv"><span class="k">${k}</span><span>${v}</span></div>`).join("");
+    rows.push(["ICE Route", peer.candidate_types.map(esc).join(", ")]);
+  if (rows.length === 0) rows.push(["Peer", "No metadata attached to SDP offer"]);
+  return rows.map(([k, v]) => `<div class="kv"><span class="k">${k}</span><span class="v">${v}</span></div>`).join("");
 }
 
 async function saveOsc() {
+  const btn = $("saveOsc");
+  btn.disabled = true;
+  const rawPrefix = $("oscPrefix").value.trim() || "/pieeg";
+  const prefix = rawPrefix.startsWith("/") ? rawPrefix : "/" + rawPrefix;
   const body = {
-    host: $("oscHost").value.trim(),
+    host: $("oscHost").value.trim() || "127.0.0.1",
     port: Number($("oscPort").value) || 9000,
-    prefix: $("oscPrefix").value.trim() || "/pieeg",
+    prefix,
     flatten: $("oscFlatten").checked,
-    enabled: true,
+    enabled: $("oscEnabled").checked,
   };
-  await api("/api/osc", { method: "PUT", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body) });
+  try {
+    await api("/api/osc", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    oscDirty = false;
+    $("oscDirtyPill").style.display = "none";
+    const orig = btn.textContent;
+    btn.textContent = "Saved";
+    setTimeout(() => { btn.textContent = orig; }, 1200);
+  } catch {}
+  finally { btn.disabled = false; }
   refresh();
 }
 
 function useTarget(host, port) {
-  $("oscHost").value = host; $("oscPort").value = port; saveOsc();
+  $("oscHost").value = host;
+  $("oscPort").value = port;
+  saveOsc();
 }
 
-let oscDirty = false;
-["oscHost","oscPort","oscPrefix"].forEach(id => $(id).addEventListener("input", () => oscDirty = true));
-$("oscFlatten").addEventListener("change", () => oscDirty = true);
+function renderCodeSlots(code) {
+  const clean = (code || "------").padEnd(6, "-").slice(0, 6);
+  $("pairingCode").textContent = code || "------";
+  const slots = $("codeSlots").children;
+  for (let i = 0; i < 6; i++) {
+    if (slots[i]) slots[i].textContent = clean[i];
+  }
+}
+
+function formatAge(lastFrameMs) {
+  if (!lastFrameMs) return "Idle";
+  const diffSec = Math.max(0, Math.floor((Date.now() - lastFrameMs) / 1000));
+  if (diffSec <= 1) return "Active now";
+  if (diffSec < 60) return `${diffSec}s ago`;
+  const mins = Math.floor(diffSec / 60);
+  return `${mins}m ${diffSec % 60}s ago`;
+}
 
 function renderStatus(d) {
-  const s = d.status, c = d.config;
-  
-  // Show pairing code
-  $("pairingCode").textContent = s.pairing_code || "------";
+  const s = d.status;
+  const c = d.config;
+  const now = Date.now();
 
-  // Pending connection request — surface the confirmation prompt.
+  renderCodeSlots(s.pairing_code);
+
+  // Pending connection confirmation
   if (s.awaiting_confirmation && s.pending_peer) {
     $("confirmCard").style.display = "";
     $("peerDetails").innerHTML = renderPeer(s.pending_peer);
+    if (s.pending_peer.requested_ms) {
+      const elapsed = Math.floor((now - s.pending_peer.requested_ms) / 1000);
+      const rem = Math.max(0, 120 - elapsed);
+      $("confirmTimer").textContent = `Expires in ${rem}s`;
+    } else {
+      $("confirmTimer").textContent = "Awaiting approval";
+    }
   } else {
     $("confirmCard").style.display = "none";
   }
-  
-  // Connection status
+
+  // Connection state resolution
   const dot = $("connDot");
-  dot.className = "dot" + (s.connected ? " on" : (s.last_error ? " err" : ""));
-  $("connText").textContent = s.connected ? "Connected & forwarding"
-    : s.ended ? "Session ended" : s.paired ? "Connecting..." : "Waiting for connection";
-  
-  const pill = $("sessionPill");
-  if (s.session_id) { pill.style.display = ""; pill.textContent = "session " + s.session_id.slice(0,8); }
-  else pill.style.display = "none";
+  const badge = $("statusBadge");
+  let stateText = "Waiting for peer";
+  let dotClass = "dot ready";
+  let badgeClass = "status-badge ready";
 
-  $("connectedInfo").style.display = s.paired ? "" : "none";
-  $("framesIn").textContent = s.frames_in;
-  $("msgsOut").textContent = s.messages_out;
-  $("lastErr").textContent = s.last_error || "—";
-
-  if (!oscDirty && c && c.osc) {
-    $("oscHost").value = c.osc.host;
-    $("oscPort").value = c.osc.port;
-    $("oscPrefix").value = c.osc.prefix;
-    $("oscFlatten").checked = c.osc.flatten;
+  if (s.awaiting_confirmation) {
+    stateText = "Approval required";
+    dotClass = "dot warn";
+    badgeClass = "status-badge warn";
+  } else if (s.connected) {
+    stateText = "Connected & forwarding";
+    dotClass = "dot on";
+    badgeClass = "status-badge connected";
+  } else if (s.last_error) {
+    stateText = "Connection error";
+    dotClass = "dot err";
+    badgeClass = "status-badge error";
+  } else if (s.ended) {
+    stateText = "Session ended";
+    dotClass = "dot";
+    badgeClass = "status-badge";
+  } else if (s.confirmed) {
+    stateText = "Handshaking...";
+    dotClass = "dot warn";
+    badgeClass = "status-badge warn";
+  } else if (s.paired) {
+    stateText = "Ready to pair";
+    dotClass = "dot ready";
+    badgeClass = "status-badge ready";
   }
 
+  dot.className = dotClass;
+  badge.className = badgeClass;
+  $("connText").textContent = stateText;
+
+  // Session pill
+  const pill = $("sessionPill");
+  if (s.session_id) {
+    pill.style.display = "";
+    pill.textContent = `Session ${s.session_id.slice(0, 8)}`;
+  } else {
+    pill.style.display = "none";
+  }
+
+  // Live telemetry rates
+  if (prevFrames !== null && prevSampleTs !== null) {
+    const dt = Math.max(0.2, (now - prevSampleTs) / 1000);
+    const df = Math.max(0, s.frames_in - prevFrames);
+    const dm = Math.max(0, s.messages_out - prevMsgs);
+    $("fpsRate").textContent = `${Math.round(df / dt)}/s`;
+    $("msgRate").textContent = `${Math.round(dm / dt)}/s`;
+  }
+  prevFrames = s.frames_in;
+  prevMsgs = s.messages_out;
+  prevSampleTs = now;
+
+  $("framesIn").textContent = s.frames_in.toLocaleString();
+  $("msgsOut").textContent = s.messages_out.toLocaleString();
+  $("lastFrameAge").textContent = formatAge(s.last_frame_ms);
+
+  // Error banner
+  if (s.last_error) {
+    $("errorBanner").style.display = "flex";
+    $("lastErr").textContent = s.last_error;
+  } else {
+    $("errorBanner").style.display = "none";
+    $("lastErr").textContent = "-";
+  }
+
+  // Show disconnect button only when connected, confirmed, or awaiting confirmation
+  $("disconnectRow").style.display = (s.connected || s.confirmed) ? "" : "none";
+
+  // OSC config & pipeline topology
+  if (c && c.osc) {
+    const oscTarget = `${c.osc.host}:${c.osc.port}`;
+    $("oscTargetPill").textContent = c.osc.enabled ? `udp://${oscTarget}` : `udp://${oscTarget} (muted)`;
+    $("oscTargetPill").className = c.osc.enabled ? "pill active" : "pill";
+
+    $("pipePeer").textContent = s.connected
+      ? `Connected (${s.pairing_code || "-"})`
+      : s.awaiting_confirmation
+        ? "Pending confirmation"
+        : `Code ${s.pairing_code || "------"}`;
+    $("pipeRouter").textContent = c.osc.flatten
+      ? `${c.osc.prefix} (flatten)`
+      : "Envelope only";
+    $("pipeOsc").textContent = c.osc.enabled ? oscTarget : `${oscTarget} (off)`;
+
+    const activeFlow = s.connected && c.osc.enabled;
+    $("pipeArrow1").className = s.connected ? "pipe-arrow active" : "pipe-arrow";
+    $("pipeArrow2").className = activeFlow ? "pipe-arrow active" : "pipe-arrow";
+
+    if (!oscDirty) {
+      $("oscHost").value = c.osc.host;
+      $("oscPort").value = c.osc.port;
+      $("oscPrefix").value = c.osc.prefix;
+      $("oscFlatten").checked = c.osc.flatten;
+      $("oscEnabled").checked = c.osc.enabled !== false;
+      updatePrefixPreview();
+    }
+  }
+
+  if (c && c.signaling_url) {
+    $("sigUrlText").textContent = c.signaling_url;
+  }
+
+  // Discovered mDNS services
   const list = $("discList");
-  if (!d.discovered || d.discovered.length === 0) {
-    list.innerHTML = '<div class="muted">No OSC apps found yet. You can still type a host above.</div>';
+  const disc = d.discovered || [];
+  $("discCount").textContent = `${disc.length} found`;
+  if (disc.length === 0) {
+    list.innerHTML = '<div class="empty-state">No mDNS _osc._udp receivers advertised on LAN yet. You can enter any host and UDP port manually above.</div>';
   } else {
     list.innerHTML = "";
-    d.discovered.forEach(x => {
+    disc.forEach(x => {
+      const isCurrent = c && c.osc && c.osc.host === x.host && Number(c.osc.port) === Number(x.port);
       const el = document.createElement("div");
-      el.className = "disc";
-      el.innerHTML = `<div><b>${x.name}</b><div class="muted">${x.host}:${x.port}</div></div>`;
+      el.className = "disc" + (isCurrent ? " selected" : "");
+      el.innerHTML = `<div class="disc-info"><div class="disc-name">${esc(x.name)}</div><div class="disc-addr">${esc(x.host)}:${esc(x.port)}</div></div>`;
       const b = document.createElement("button");
-      b.textContent = "Use"; b.onclick = () => useTarget(x.host, x.port);
-      el.appendChild(b); list.appendChild(el);
+      b.type = "button";
+      b.className = isCurrent ? "ghost sm" : "sm";
+      b.textContent = isCurrent ? "Active" : "Use Target";
+      b.disabled = isCurrent;
+      b.onclick = () => useTarget(x.host, x.port);
+      el.appendChild(b);
+      list.appendChild(el);
     });
   }
 }
 
 async function refresh() {
-  try { renderStatus(await api("/api/status")); } catch {}
+  try {
+    const data = await api("/api/status");
+    renderStatus(data);
+  } catch {
+    $("connDot").className = "dot err";
+    $("statusBadge").className = "status-badge error";
+    $("connText").textContent = "Bridge unreachable";
+  }
 }
 
+$("copyBtn").onclick = copyPairingCode;
+$("codeSlots").onclick = copyPairingCode;
 $("regenerateBtn").onclick = regenerateCode;
 $("disconnectBtn").onclick = disconnect;
 $("confirmBtn").onclick = confirmPeer;
 $("rejectBtn").onclick = rejectPeer;
-$("saveOsc").onclick = () => { saveOsc(); oscDirty = false; };
+$("saveOsc").onclick = saveOsc;
 
 refresh();
 setInterval(refresh, 1000);

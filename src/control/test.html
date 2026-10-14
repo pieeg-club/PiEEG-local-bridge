@@ -1,32 +1,185 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8">
-  <title>PiEEG Bridge — WebRTC Test</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PiEEG Local Bridge - Loopback Test</title>
+  <link rel="icon" type="image/png" href="/icon.png" />
   <style>
-    body { font-family: system-ui; max-width: 800px; margin: 40px auto; padding: 20px; }
-    button { padding: 10px 20px; font-size: 16px; cursor: pointer; }
-    .status { padding: 10px; margin: 10px 0; border-radius: 4px; }
-    .success { background: #d4edda; color: #155724; }
-    .error { background: #f8d7da; color: #721c24; }
-    .info { background: #d1ecf1; color: #0c5460; }
-    pre { background: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto; }
-    #messages { max-height: 400px; overflow-y: auto; }
+    :root {
+      --bg: #06090e;
+      --panel: rgba(13, 18, 28, 0.88);
+      --surface: rgba(255, 255, 255, 0.03);
+      --border: rgba(255, 255, 255, 0.08);
+      --border-strong: rgba(255, 255, 255, 0.15);
+      --text: #f1f5f9;
+      --text-secondary: #cbd5e1;
+      --muted: #64748b;
+      --accent: #22d3ee;
+      --accent2: #6366f1;
+      --good: #10b981;
+      --bad: #ef4444;
+      --font-sans: "Inter", "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: "JetBrains Mono", "Cascadia Code", "SF Mono", Consolas, monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background-color: var(--bg);
+      background-image: radial-gradient(900px 450px at 50% -10%, rgba(34, 211, 238, 0.09), transparent 70%);
+      color: var(--text);
+      font: 13.5px/1.5 var(--font-sans);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 28px 16px 40px;
+    }
+    .wrap {
+      width: 100%;
+      max-width: 640px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .logo {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid var(--border-strong);
+    }
+    .logo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    h1 { font-size: 16px; margin: 0; font-weight: 650; }
+    .sub { font-size: 12px; color: var(--muted); }
+    a.back {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 12.5px;
+      padding: 6px 12px;
+      border: 1px solid var(--border-strong);
+      border-radius: 7px;
+      background: var(--surface);
+    }
+    a.back:hover { border-color: var(--accent); color: var(--accent); }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+    }
+    .card h2 {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-secondary);
+      margin: 0 0 12px;
+    }
+    label { display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 5px; }
+    input, textarea {
+      width: 100%;
+      background: rgba(6, 9, 14, 0.65);
+      border: 1px solid var(--border-strong);
+      border-radius: 7px;
+      padding: 9px 12px;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 13px;
+    }
+    input:focus, textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .row { display: flex; gap: 10px; align-items: flex-end; }
+    button {
+      background: linear-gradient(135deg, var(--accent2), #0891b2);
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 7px;
+      padding: 9px 14px;
+      font: 550 13px/1.2 var(--font-sans);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    button.ghost {
+      background: var(--surface);
+      border: 1px solid var(--border-strong);
+      color: var(--text-secondary);
+    }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .status-bar {
+      padding: 9px 12px;
+      border-radius: 7px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      margin-bottom: 12px;
+    }
+    .status-bar.success { border-color: rgba(16, 185, 129, 0.4); color: #34d399; background: rgba(16, 185, 129, 0.1); }
+    .status-bar.error { border-color: rgba(239, 68, 68, 0.4); color: #fca5a5; background: rgba(239, 68, 68, 0.1); }
+    .status-bar.info { border-color: rgba(34, 211, 238, 0.3); color: var(--accent); background: rgba(34, 211, 238, 0.07); }
+    #messages {
+      max-height: 280px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+    }
+    .log-item {
+      padding: 6px 10px;
+      border-radius: 6px;
+      background: rgba(0, 0, 0, 0.3);
+      border-left: 3px solid var(--accent);
+      word-break: break-all;
+    }
+    .log-item.success { border-left-color: var(--good); }
+    .log-item.error { border-left-color: var(--bad); color: #fca5a5; }
   </style>
 </head>
 <body>
-  <h1>PiEEG Bridge — WebRTC Connection Test</h1>
-  
-  <div id="status" class="status info">Ready to connect</div>
-  
-  <label for="sessionCode">Pairing Code (from bridge UI)</label>
-  <input id="sessionCode" placeholder="e.g. UFUD3P" style="margin-bottom: 10px" />
-  
-  <button id="connectBtn" onclick="connect()">Connect via WebRTC</button>
-  <button id="sendBtn" onclick="sendTestData()" disabled>Send Test Data</button>
-  
-  <h2>Messages</h2>
-  <div id="messages"></div>
+  <div class="wrap">
+    <header>
+      <div class="brand">
+        <div class="logo"><img src="/icon.png" alt="PiEEG" /></div>
+        <div>
+          <h1>WebRTC Loopback Test</h1>
+          <div class="sub">Local data channel and OSC forwarding diagnostic</div>
+        </div>
+      </div>
+      <a class="back" href="/">Back to Control UI</a>
+    </header>
+
+    <div class="card">
+      <h2>1. Loopback Handshake</h2>
+      <div id="status" class="status-bar info">Ready to connect</div>
+      <div class="row">
+        <div style="flex: 1">
+          <label for="sessionCode">Pairing Code</label>
+          <input id="sessionCode" placeholder="6-character code" />
+        </div>
+        <button id="connectBtn" type="button" onclick="connect()">Connect via WebRTC</button>
+        <button id="sendBtn" class="ghost" type="button" onclick="sendTestData()" disabled>Send Test Packet</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>2. Event Log</h2>
+      <div id="messages"></div>
+    </div>
+  </div>
 
   <script>
     let pc = null;
@@ -34,60 +187,64 @@
 
     function log(msg, level = 'info') {
       const div = document.createElement('div');
-      div.className = `status ${level}`;
-      div.textContent = msg;
+      div.className = `log-item ${level}`;
+      const ts = new Date().toLocaleTimeString();
+      div.textContent = `[${ts}] ${msg}`;
       document.getElementById('messages').prepend(div);
-      console.log(msg);
+    }
+
+    async function loadCurrentCode() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        if (data && data.status && data.status.pairing_code) {
+          document.getElementById('sessionCode').value = data.status.pairing_code;
+        }
+      } catch {}
     }
 
     async function connect() {
       try {
         const sessionCode = document.getElementById('sessionCode').value.trim().toUpperCase();
         if (!sessionCode) {
-          log('❌ Please enter the pairing code from the bridge UI', 'error');
+          log('Enter the pairing code from the bridge UI', 'error');
           return;
         }
-        
+
         document.getElementById('status').textContent = 'Connecting...';
+        document.getElementById('status').className = 'status-bar info';
         document.getElementById('connectBtn').disabled = true;
 
-        // Create peer connection
-        pc = new RTCPeerConnection({
-          iceServers: [] // No STUN/TURN needed for localhost
-        });
+        pc = new RTCPeerConnection({ iceServers: [] });
 
-        // Create data channel
-        dataChannel = pc.createDataChannel('pieeg-bridge', {
-          ordered: true
-        });
+        dataChannel = pc.createDataChannel('pieeg-bridge', { ordered: true });
 
         dataChannel.onopen = () => {
-          log('✅ Data channel open — connection established!', 'success');
-          document.getElementById('status').textContent = '✅ Connected';
-          document.getElementById('status').className = 'status success';
+          log('Data channel open - connection established', 'success');
+          document.getElementById('status').textContent = 'Connected (DataChannel open)';
+          document.getElementById('status').className = 'status-bar success';
           document.getElementById('sendBtn').disabled = false;
         };
 
         dataChannel.onclose = () => {
-          log('❌ Data channel closed', 'error');
+          log('Data channel closed', 'error');
           document.getElementById('status').textContent = 'Disconnected';
-          document.getElementById('status').className = 'status error';
+          document.getElementById('status').className = 'status-bar error';
           document.getElementById('sendBtn').disabled = true;
+          document.getElementById('connectBtn').disabled = false;
         };
 
         dataChannel.onmessage = (evt) => {
-          log(`📨 Received: ${evt.data}`);
+          log(`Received: ${evt.data}`);
         };
 
         dataChannel.onerror = (err) => {
-          log(`❌ Data channel error: ${err}`, 'error');
+          log(`Data channel error: ${err}`, 'error');
         };
 
-        // Generate offer
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
 
-        // Wait for ICE gathering to complete
         await new Promise((resolve) => {
           if (pc.iceGatheringState === 'complete') {
             resolve();
@@ -100,10 +257,9 @@
           }
         });
 
-        log('📤 Sending SDP offer to bridge...');
+        log('Sending SDP offer to /signal...');
 
-        // Send offer to bridge and get answer
-        const response = await fetch('http://127.0.0.1:47800/signal', {
+        const response = await fetch('/signal', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -118,30 +274,28 @@
         }
 
         const answer = await response.json();
-        log('📥 Received SDP answer from bridge');
+        log('Received SDP answer from bridge');
 
         await pc.setRemoteDescription({
           type: answer.type,
           sdp: answer.sdp
         });
 
-        log('⏳ Waiting for data channel to open...', 'info');
-
+        log('Waiting for data channel to open...', 'info');
       } catch (err) {
-        log(`❌ Connection failed: ${err.message}`, 'error');
+        log(`Connection failed: ${err.message}`, 'error');
         document.getElementById('status').textContent = `Error: ${err.message}`;
-        document.getElementById('status').className = 'status error';
+        document.getElementById('status').className = 'status-bar error';
         document.getElementById('connectBtn').disabled = false;
       }
     }
 
     function sendTestData() {
       if (!dataChannel || dataChannel.readyState !== 'open') {
-        log('❌ Data channel not open', 'error');
+        log('Data channel not open', 'error');
         return;
       }
 
-      // Test 1: Simple channel data (should be flattened to OSC)
       const testData1 = {
         channels: [0.1, 0.2, 0.3, 0.4],
         alpha: 0.42,
@@ -149,7 +303,6 @@
         t: Date.now()
       };
 
-      // Test 2: Explicit OSC envelope (should be forwarded verbatim)
       const testData2 = {
         osc: {
           address: "/avatar/parameters/EEG_Alpha",
@@ -157,20 +310,21 @@
         }
       };
 
-      log(`📤 Sending test data 1 (flattened): ${JSON.stringify(testData1)}`);
+      log(`Sent flattened payload: ${JSON.stringify(testData1)}`, 'success');
       dataChannel.send(JSON.stringify(testData1));
 
       setTimeout(() => {
-        log(`📤 Sending test data 2 (explicit OSC): ${JSON.stringify(testData2)}`);
+        log(`Sent explicit OSC envelope: ${JSON.stringify(testData2)}`, 'success');
         dataChannel.send(JSON.stringify(testData2));
-      }, 500);
+      }, 400);
     }
 
-    // Auto-cleanup on page unload
     window.addEventListener('beforeunload', () => {
       if (dataChannel) dataChannel.close();
       if (pc) pc.close();
     });
+
+    loadCurrentCode();
   </script>
 </body>
 </html>
