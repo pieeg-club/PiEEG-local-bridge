@@ -1,4 +1,5 @@
 # Pieeg Local Bridge
+<img width="695" height="826" alt="image" src="https://github.com/user-attachments/assets/3defd0a2-e305-430f-a49a-602c03ca4a92" />
 
 An ultra-fast, secure local gateway that connects the browser-based **Pieeg Cloud**
 to services on your own network. It receives a real-time data stream from a browser
